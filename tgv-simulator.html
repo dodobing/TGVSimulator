@@ -134,6 +134,10 @@
       <input type="range" id="pDiam" min="0.5" max="6" step="0.5" value="5">
     </div>
     <div class="param">
+      <label><span data-i18n="pTiltL">중심 Tilt (top→bottom, XY 동일)</span> <b><span id="vTilt"></span> µm</b></label>
+      <input type="range" id="pTilt" min="0" max="10" step="0.5" value="0">
+    </div>
+    <div class="param">
       <label><span data-i18n="pSelML">Modified area 식각 selectivity</span> <b>×<span id="vSelM"></span></b></label>
       <input type="range" id="pSelM" min="1" max="500" step="1" value="50">
     </div>
@@ -279,7 +283,7 @@
  *      ζ = min(z, T−z),  ζ ≤ f(t) 이면 r = d/2 + vG·(t − ζ/vM)
  * → 경사(taper) tanθ = vG/vM = Sg/Sm 인 모래시계(hourglass) 프로파일.
  */
-const P = { T: 300, d: 5, Sm: 50, Sg: 1, R0: 1 };
+const P = { T: 300, d: 5, Sm: 50, Sg: 1, R0: 1, tilt: 0 };
 const sim = { t: 0, tEnd: 1, playing: false, speed: 1 };
 
 const vG = () => P.R0 * P.Sg;
@@ -497,6 +501,7 @@ const I18N = {
     subtitle: "Laser modification 후 chemical etching 에 의한 Through-Glass Via 형성 — 단면 시간 전개 + 3D volume rendering",
     paramTitle: "입력 파라미터",
     pThickL: "유리 두께", pDiamL: "Laser modified 직경",
+    pTiltL: "중심 Tilt (top→bottom, XY 동일)",
     pSelML: "Modified area 식각 selectivity", pSelGL: "유리 식각 selectivity",
     pRateL: "기준 식각 속도", pTEndL: "총 식각 시간",
     tEndAuto: "자동 (관통 + 확장 구간)",
@@ -531,6 +536,7 @@ const I18N = {
     subtitle: "Through-glass via formation by laser modification + chemical etching — cross-section time evolution + 3D volume rendering",
     paramTitle: "Input Parameters",
     pThickL: "Glass thickness", pDiamL: "Laser modified diameter",
+    pTiltL: "Center tilt (top→bottom, equal XY)",
     pSelML: "Modified area etch selectivity", pSelGL: "Glass etch selectivity",
     pRateL: "Base etch rate", pTEndL: "Total etch time",
     tEndAuto: "Auto (breakthrough + widening)",
@@ -565,6 +571,7 @@ const I18N = {
     subtitle: "レーザー改質＋化学エッチングによる Through-Glass Via 形成 — 断面の時間発展 + 3D ボリュームレンダリング",
     paramTitle: "入力パラメータ",
     pThickL: "ガラス厚さ", pDiamL: "レーザー改質径",
+    pTiltL: "中心チルト（top→bottom、XY同量）",
     pSelML: "改質部エッチング選択比", pSelGL: "ガラスエッチング選択比",
     pRateL: "基準エッチング速度", pTEndL: "総エッチング時間",
     tEndAuto: "自動（貫通＋拡大区間）",
@@ -599,6 +606,7 @@ const I18N = {
     subtitle: "激光改质 + 化学蚀刻形成玻璃通孔 (TGV) — 剖面时间演化 + 3D 体渲染",
     paramTitle: "输入参数",
     pThickL: "玻璃厚度", pDiamL: "激光改质区直径",
+    pTiltL: "中心倾斜（top→bottom，XY等量）",
     pSelML: "改质区蚀刻选择比", pSelGL: "玻璃蚀刻选择比",
     pRateL: "基准蚀刻速率", pTEndL: "总蚀刻时间",
     tEndAuto: "自动（贯通 + 扩孔区间）",
@@ -633,6 +641,7 @@ const I18N = {
     subtitle: "雷射改質 + 化學蝕刻形成玻璃通孔 (TGV) — 剖面時間演化 + 3D 體渲染",
     paramTitle: "輸入參數",
     pThickL: "玻璃厚度", pDiamL: "雷射改質區直徑",
+    pTiltL: "中心傾斜（top→bottom，XY等量）",
     pSelML: "改質區蝕刻選擇比", pSelGL: "玻璃蝕刻選擇比",
     pRateL: "基準蝕刻速率", pTEndL: "總蝕刻時間",
     tEndAuto: "自動（貫通 + 擴孔區間）",
@@ -688,6 +697,7 @@ function bindParam(id, key, disp, dn = 1) {
 }
 bindParam("pThick", "T", "vThick", 0);
 bindParam("pDiam", "d", "vDiam", 1);
+bindParam("pTilt", "tilt", "vTilt", 1);
 bindParam("pSelM", "Sm", "vSelM", 0);
 bindParam("pSelG", "Sg", "vSelG", 1);
 bindParam("pRate", "R0", "vRate", 1);
@@ -846,7 +856,7 @@ function draw2D() {
   const availW = W - mL - mR, availH = H - mT - mB;
   const scaleY = availH / P.T;
   const crackMax = crack.on ? crack.L * (1 + crack.lenVar / 100) * 1.25 : 0;
-  const halfWNeeded = Math.max(rMaxEnd() * 1.35, P.d * 2, crackMax);
+  const halfWNeeded = Math.max(rMaxEnd() * 1.35, P.d * 2, crackMax) + P.tilt * 0.6;
   let scaleX = aspect.auto
     ? availW / (2 * halfWNeeded)      // 자동: via 최대 폭이 캔버스에 맞도록
     : scaleY * aspect.M;              // 수동: 수직 축척 × M
@@ -856,6 +866,8 @@ function draw2D() {
   const cx = mL + availW / 2;
   const zy = z => mT + z * scaleY;
   const xr = x => cx + x * scaleX;
+  // track 중심 tilt: top→bottom 으로 선형 이동 (단면은 X 성분, 전체가 화면 중앙에 오도록 센터링)
+  const offX = z => P.tilt * (z / P.T - 0.5);
 
   // 배경(식각액)
   ctx2.fillStyle = "#0d2233";
@@ -874,10 +886,16 @@ function draw2D() {
   ctx2.fillStyle = "#5b7f9e";
   ctx2.fillRect(mL, zy(s), availW, Math.max(0, (P.T - 2 * s) * scaleY));
 
-  // 미식각 modified track
+  // 미식각 modified track (tilt 반영 사변형)
   if (f < P.T / 2) {
     ctx2.fillStyle = "#ff8a3d";
-    ctx2.fillRect(xr(-P.d / 2), zy(f), P.d * scaleX, (P.T - 2 * f) * scaleY);
+    ctx2.beginPath();
+    ctx2.moveTo(xr(offX(f) - P.d / 2), zy(f));
+    ctx2.lineTo(xr(offX(f) + P.d / 2), zy(f));
+    ctx2.lineTo(xr(offX(P.T - f) + P.d / 2), zy(P.T - f));
+    ctx2.lineTo(xr(offX(P.T - f) - P.d / 2), zy(P.T - f));
+    ctx2.closePath();
+    ctx2.fill();
   }
 
   // Via(식각된 영역) 프로파일 폴리곤
@@ -888,8 +906,9 @@ function draw2D() {
     for (let i = 0; i <= N; i++) {
       const z = z0 + (z1 - z0) * i / N;
       const r = Math.max(holeRadius(z, t), 0);
-      Lw.push([xr(-r), zy(z)]);
-      Rw.push([xr(r), zy(z)]);
+      const o = offX(z);
+      Lw.push([xr(o - r), zy(z)]);
+      Rw.push([xr(o + r), zy(z)]);
     }
     ctx2.beginPath();
     Lw.forEach(([x, y], i) => i === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y));
@@ -923,13 +942,14 @@ function draw2D() {
     for (const c of cracks) {
       if (c.z < s || c.z > P.T - s) continue;          // 표면 후퇴로 소멸
       const tau0 = t - Math.min(c.z, P.T - c.z) / vM(); // etchant 도달 후 경과시간
+      const oc = offX(c.z);                             // tilt 된 track 중심 (crack 원점)
       const rhoF = tau0 > 0 ? Math.min(vM() * tau0, c.len) : 0;   // crack 내 식각 front
       if (rhoF < c.len) {                               // 미식각 crack 선
         ctx2.strokeStyle = "#ffd24d";
         ctx2.lineWidth = Math.max(1, crack.w * scaleY);
         ctx2.beginPath();
-        ctx2.moveTo(xr(rhoF), zy(c.z)); ctx2.lineTo(xr(c.len), zy(c.z));
-        ctx2.moveTo(xr(-rhoF), zy(c.z)); ctx2.lineTo(xr(-c.len), zy(c.z));
+        ctx2.moveTo(xr(oc + rhoF), zy(c.z)); ctx2.lineTo(xr(oc + c.len), zy(c.z));
+        ctx2.moveTo(xr(oc - rhoF), zy(c.z)); ctx2.lineTo(xr(oc - c.len), zy(c.z));
         ctx2.stroke();
         ctx2.lineWidth = 1;
       }
@@ -945,9 +965,9 @@ function draw2D() {
       ctx2.fillStyle = "#0d2233";
       for (const sgn of [1, -1]) {
         ctx2.beginPath();
-        ctx2.moveTo(xr(0), zy(c.z - half(0)));
-        for (let k = 1; k <= M; k++) { const rho = rhoMax * k / M; ctx2.lineTo(xr(sgn * rho), zy(c.z - half(rho))); }
-        for (let k = M; k >= 0; k--) { const rho = rhoMax * k / M; ctx2.lineTo(xr(sgn * rho), zy(c.z + half(rho))); }
+        ctx2.moveTo(xr(oc), zy(c.z - half(0)));
+        for (let k = 1; k <= M; k++) { const rho = rhoMax * k / M; ctx2.lineTo(xr(oc + sgn * rho), zy(c.z - half(rho))); }
+        for (let k = M; k >= 0; k--) { const rho = rhoMax * k / M; ctx2.lineTo(xr(oc + sgn * rho), zy(c.z + half(rho))); }
         ctx2.closePath();
         ctx2.fill();
       }
@@ -966,8 +986,8 @@ function draw2D() {
     ctx2.lineWidth = 1;
     ctx2.setLineDash([3, 3]);
     ctx2.beginPath();
-    ctx2.moveTo(Math.max(xr(-rMouth), mL), zy(s));
-    ctx2.lineTo(Math.min(xr(rMouth), mL + availW), zy(s));
+    ctx2.moveTo(Math.max(xr(offX(s) - rMouth), mL), zy(s));
+    ctx2.lineTo(Math.min(xr(offX(s) + rMouth), mL + availW), zy(s));
     ctx2.stroke();
     ctx2.setLineDash([]);
   }
@@ -992,18 +1012,19 @@ function draw2D() {
   const rTop = holeRadius(s + 1e-9, t);
   if (rTop > 0) {
     ctx2.fillStyle = annC;
-    ctx2.fillText("Ø " + fmt(2 * rTop) + " µm", cx, zy(s) - 8);
+    ctx2.fillText("Ø " + fmt(2 * rTop) + " µm", xr(offX(s)), zy(s) - 8);
   }
   if (t >= tBreak()) {
     const rw = holeRadius(P.T / 2, t);
+    const ow = offX(P.T / 2);
     ctx2.fillStyle = "#7dffb0";
-    const lx = Math.min(cx + (rw * scaleX) + 52, W - 60);
+    const lx = Math.min(xr(ow) + (rw * scaleX) + 52, W - 60);
     ctx2.fillText("waist Ø " + fmt(2 * rw) + " µm", lx, zy(P.T / 2) + 4);
     ctx2.strokeStyle = "#7dffb055";
     ctx2.setLineDash([3, 3]);
     ctx2.beginPath();
-    ctx2.moveTo(Math.max(xr(-rw), mL), zy(P.T / 2));
-    ctx2.lineTo(Math.min(xr(rw), mL + availW), zy(P.T / 2));
+    ctx2.moveTo(Math.max(xr(ow - rw), mL), zy(P.T / 2));
+    ctx2.lineTo(Math.min(xr(ow + rw), mL + availW), zy(P.T / 2));
     ctx2.stroke();
     ctx2.setLineDash([]);
   }
@@ -1058,6 +1079,7 @@ uniform float uAniso;    // display xy → 물리 xy 환산비
 uniform float uR0;       // track 반경 d/2
 uniform float uVg, uVm, uTime;
 uniform float uCut;
+uniform float uTilt;     // track 중심 top→bottom 이동량 (µm, X·Y 동일)
 uniform int   uNC;       // crack 개수 (0 = crack 모드 off)
 uniform float uCw;       // crack 두께 (µm)
 uniform vec4  uCracks[96]; // x: z(중심계 µm), y: 각도(rad), z: 길이, w: etchant 도달 시각
@@ -1069,7 +1091,8 @@ int material(vec3 p) {
   if (abs(p.z) > zTop) return 0;                       // 표면 후퇴로 제거된 영역
   if (uCut > 0.5 && p.x > 0.0 && p.y < 0.0) return 0;  // cut-away
   vec2 xy = p.xy * uAniso;                             // 물리 좌표로 환산
-  float rr = length(xy);
+  vec2 ctr = vec2(uTilt) * ((uT * 0.5 - p.z) / uT - 0.5);  // tilt 된 track 중심 (XY 동일, 센터링)
+  float rr = length(xy - ctr);
   float zeta = uT * 0.5 - abs(p.z);                    // 원표면으로부터의 깊이
   float f = uVm * uTime;
   if (zeta <= f) {
@@ -1088,18 +1111,20 @@ int material(vec3 p) {
     float hMax = uCw * 0.5 + ((tau0 > 0.0) ? uVg * tau0 : 0.0);
     if (abs(dzc) > hMax) continue;                     // z 근접 조기 기각
     vec2 dir = vec2(cos(c.y), sin(c.y));
-    float along = dot(xy, dir);
+    vec2 o = vec2(uTilt) * ((uT * 0.5 - c.x) / uT - 0.5);  // crack 원점 = 해당 깊이의 track 중심
+    vec2 rel = xy - o;
+    float along = dot(rel, dir);
     if (along < -hMax || along > c.z + hMax) continue;
     // crack 단면: 두께(uCw)는 Z 방향, 폭(XY 접선 방향)은 0.5 µm 고정 (반폭 0.25)
     if (tau0 > 0.0) {                                  // 식각 sheath: crack 따라 vM 전파 + vG 등방 확장
       float rhoE = clamp(along, 0.0, min(c.z, uVm * tau0));
       float tauL = tau0 - rhoE / uVm;
-      vec2 q = xy - dir * rhoE;
+      vec2 q = rel - dir * rhoE;
       float g = uVg * max(tauL, 0.0);
       if (tauL > 0.0 && length(q) < 0.25 + g && abs(dzc) < uCw * 0.5 + g) return 3;
     }
     float rhoC = clamp(along, 0.0, c.z);               // 미식각 crack 본체
-    vec2 q2 = xy - dir * rhoC;
+    vec2 q2 = rel - dir * rhoC;
     if (length(q2) < 0.25 && abs(dzc) < uCw * 0.5) return 5;
   }
   return 1;
@@ -1204,7 +1229,7 @@ function initGL() {
   const loc = gl.getAttribLocation(prog, "aPos");
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  ["uRes", "uYaw", "uPitch", "uDist", "uT", "uHW", "uAniso", "uR0", "uVg", "uVm", "uTime", "uCut", "uNC", "uCw", "uCracks"]
+  ["uRes", "uYaw", "uPitch", "uDist", "uT", "uHW", "uAniso", "uR0", "uVg", "uVm", "uTime", "uCut", "uTilt", "uNC", "uCw", "uCracks"]
     .forEach(n => uni[n] = gl.getUniformLocation(prog, n));
 }
 
@@ -1223,7 +1248,7 @@ function draw3D() {
   let aniso;
   if (aspect.auto) {
     const crackHW = crack.on ? crack.L * (1 + crack.lenVar / 100) * 1.4 : 0;
-    const physHW = Math.max(rMaxEnd() * 1.5, P.d * 2.5, crackHW);
+    const physHW = Math.max(rMaxEnd() * 1.5, P.d * 2.5, crackHW) + P.tilt * 0.6;
     aniso = physHW / dispHW;
   } else {
     aniso = 1 / aspect.M;
@@ -1243,6 +1268,7 @@ function draw3D() {
   gl.uniform1f(uni.uVm, vM());
   gl.uniform1f(uni.uTime, sim.t);
   gl.uniform1f(uni.uCut, $("optCut").checked ? 1 : 0);
+  gl.uniform1f(uni.uTilt, P.tilt);
 
   // crack 데이터 업로드 (도달 시각이 vM 에 의존하므로 매 프레임 재계산)
   const nc = crack.on ? cracks.length : 0;
