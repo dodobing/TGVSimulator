@@ -1,10 +1,12 @@
 # TGV Simulator
 
+**Live demo: <https://dodobing.github.io/TGVSimulator/>**
+
 Laser modification 후 chemical etching으로 형성되는 Through-Glass Via (TGV) 공정 시뮬레이터.
-단일 HTML 파일로 동작하며, 브라우저에서 [`tgv-simulator.html`](tgv-simulator.html)을 열면 바로 실행됩니다.
+단일 HTML 파일로 동작하며, 위 링크에 접속하거나 브라우저에서 [`index.html`](index.html)을 열면 바로 실행됩니다.
 
 An interactive simulator of through-glass via (TGV) formation by laser modification + chemical etching.
-Single self-contained HTML file — just open [`tgv-simulator.html`](tgv-simulator.html) in a browser.
+Single self-contained HTML file — visit the live demo above or open [`index.html`](index.html) in a browser.
 
 ## Features
 
