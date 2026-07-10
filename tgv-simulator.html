@@ -95,6 +95,12 @@
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
   .opts { display: flex; gap: 14px; font-size: 12px; color: var(--dim); margin-top: 8px; align-items: center; }
   .opts label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  footer.notice {
+    margin-top: 14px; padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    font-size: 11px; line-height: 1.6; color: var(--dim);
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -257,6 +263,8 @@
     <div class="hint"><span data-i18n="drag">드래그: 회전 · 휠: 확대/축소</span><span id="hScale3d"></span></div>
   </div>
 </div>
+
+<footer class="notice" data-i18n="notice">⚠ 본 시뮬레이터는 TGV 형성 원리를 설명하기 위해 제작된 매우 단순화된 모델입니다. 여기에 사용된 수치와 결과는 실제 공정과 많은 차이가 있을 수 있으며, 공정 설계·검증 용도로 사용할 수 없습니다.</footer>
 
 <script>
 "use strict";
@@ -516,7 +524,8 @@ const I18N = {
     cCntL: "Z slice 당 개수", cAngL: "Crack 간 상대 각도", cAngVarL: "Slice 간 각도 변동",
     cCntVarL: "개수 변화량", cIntL: "Z slice 간격", legCrack: "Crack (미식각)",
     showCrackP: "▸ 파라미터 보기", hideCrackP: "▾ 파라미터 숨기기",
-    cWidthNote: "폭(XY)은 0.5 µm 고정"
+    cWidthNote: "폭(XY)은 0.5 µm 고정",
+    notice: "⚠ 본 시뮬레이터는 TGV 형성 원리를 설명하기 위해 제작된 매우 단순화된 모델입니다. 여기에 사용된 수치와 결과는 실제 공정과 많은 차이가 있을 수 있으며, 공정 설계·검증 용도로 사용할 수 없습니다."
   },
   en: {
     subtitle: "Through-glass via formation by laser modification + chemical etching — cross-section time evolution + 3D volume rendering",
@@ -549,7 +558,8 @@ const I18N = {
     cCntL: "Cracks per Z slice", cAngL: "Relative angle", cAngVarL: "Angle variation / slice",
     cCntVarL: "Count variation", cIntL: "Z-slice interval", legCrack: "Crack (unetched)",
     showCrackP: "▸ Show parameters", hideCrackP: "▾ Hide parameters",
-    cWidthNote: "XY width fixed at 0.5 µm"
+    cWidthNote: "XY width fixed at 0.5 µm",
+    notice: "⚠ This simulator is a highly simplified model built to illustrate the principles of TGV formation. The values and results shown may differ significantly from real processes and must not be used for process design or verification."
   },
   ja: {
     subtitle: "レーザー改質＋化学エッチングによる Through-Glass Via 形成 — 断面の時間発展 + 3D ボリュームレンダリング",
@@ -582,7 +592,8 @@ const I18N = {
     cCntL: "Zスライス当たり本数", cAngL: "クラック間相対角度", cAngVarL: "スライス間角度変動",
     cCntVarL: "本数変動", cIntL: "Zスライス間隔", legCrack: "クラック（未エッチング）",
     showCrackP: "▸ パラメータ表示", hideCrackP: "▾ パラメータ非表示",
-    cWidthNote: "幅（XY）は 0.5 µm 固定"
+    cWidthNote: "幅（XY）は 0.5 µm 固定",
+    notice: "⚠ 本シミュレータは TGV 形成の原理を説明するために作られた大幅に簡略化されたモデルです。ここで使用される数値や結果は実際のプロセスと大きく異なる場合があり、プロセス設計・検証には使用できません。"
   },
   zh: {
     subtitle: "激光改质 + 化学蚀刻形成玻璃通孔 (TGV) — 剖面时间演化 + 3D 体渲染",
@@ -615,7 +626,8 @@ const I18N = {
     cCntL: "每Z切片数量", cAngL: "裂纹间相对角度", cAngVarL: "切片间角度变动",
     cCntVarL: "数量变动", cIntL: "Z切片间隔", legCrack: "裂纹（未蚀刻）",
     showCrackP: "▸ 显示参数", hideCrackP: "▾ 隐藏参数",
-    cWidthNote: "宽度（XY）固定为 0.5 µm"
+    cWidthNote: "宽度（XY）固定为 0.5 µm",
+    notice: "⚠ 本模拟器是为讲解 TGV 形成原理而制作的高度简化模型。所用数值和结果可能与实际工艺存在较大差异，不可用于工艺设计或验证。"
   },
   tw: {
     subtitle: "雷射改質 + 化學蝕刻形成玻璃通孔 (TGV) — 剖面時間演化 + 3D 體渲染",
@@ -648,7 +660,8 @@ const I18N = {
     cCntL: "每Z切片數量", cAngL: "裂紋間相對角度", cAngVarL: "切片間角度變動",
     cCntVarL: "數量變動", cIntL: "Z切片間隔", legCrack: "裂紋（未蝕刻）",
     showCrackP: "▸ 顯示參數", hideCrackP: "▾ 隱藏參數",
-    cWidthNote: "寬度（XY）固定為 0.5 µm"
+    cWidthNote: "寬度（XY）固定為 0.5 µm",
+    notice: "⚠ 本模擬器是為說明 TGV 形成原理而製作的高度簡化模型。所用數值與結果可能與實際製程存在較大差異，不可用於製程設計或驗證。"
   }
 };
 let lang = "ko";
