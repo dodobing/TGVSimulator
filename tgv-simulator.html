@@ -221,6 +221,7 @@
       <div><span data-i18n="rTopL">입구 직경 (top/bottom)</span><b><span id="rTop"></span></b></div>
       <div><span data-i18n="rWaistL">Waist 직경 (중앙)</span><b><span id="rWaist"></span></b></div>
       <div><span data-i18n="rTaperL">Taper 각도</span><b><span id="rTaper"></span></b></div>
+      <div><span data-i18n="rRoundL">Roundness (waist)</span><b><span id="rRound"></span></b></div>
       <div><span data-i18n="rThickL">잔여 유리 두께</span><b><span id="rThick"></span></b></div>
     </div>
     <div class="status" id="rStatus"></div>
@@ -285,10 +286,19 @@ const E_LO = Math.log10(0.5), E_HI = Math.log10(5000);
 const sliderToTEnd = v => Math.pow(10, E_LO + (v / 100) * (E_HI - E_LO));
 const tEndToSlider = t => Math.round((Math.log10(t) - E_LO) / (E_HI - E_LO) * 100);
 
+/* Via 입구 직경이 150 µm 에 도달하는 시각 — 총 식각 시간의 상한
+ * 입구 반경 r_e(t) = d/2 + vG·t·(1 − vG/vM)  (표면 후퇴 보정 포함) */
+function tMaxDiam() {
+  const k = vG() * (1 - vG() / vM());
+  if (k <= 0) return Infinity;
+  return Math.max(0.1, (75 - P.d / 2) / k);
+}
+
 function recomputeEnd() {
+  const cap = Math.min(0.92 * tConsume(), tMaxDiam());
   sim.tEnd = etime.auto
-    ? Math.max(0.5, Math.min(3 * tBreak(), 0.92 * tConsume()))
-    : etime.val;
+    ? Math.max(0.5, Math.min(3 * tBreak(), cap))
+    : Math.max(0.1, Math.min(etime.val, cap));
   sim.t = Math.min(sim.t, sim.tEnd);
   const el = document.getElementById("vTEnd");
   if (el) {
@@ -353,6 +363,73 @@ function regenCracks() {
       if (cracks.length >= MAXC) break outer;
     }
   }
+}
+
+/* 깊이 z 에서 crack c 에 의한 벽면 반경 확장량 (내벽 조도 Sa 계산용, 2D fin 프로파일과 동일 모델) */
+function crackExtentAt(c, z, t) {
+  const tau0 = t - Math.min(c.z, P.T - c.z) / vM();
+  if (tau0 <= 0) return 0;
+  const dz = Math.abs(z - c.z), w2 = crack.w / 2;
+  const reach = Math.min(c.len, vM() * tau0);
+  let ext = 0;
+  const tAvail = dz <= w2 ? tau0 : tau0 - (dz - w2) / vG();   // 해당 z 까지 성장 후 남는 시간
+  if (tAvail > 0) ext = Math.min(reach, vM() * tAvail);
+  const tipTau = tau0 - c.len / vM();
+  if (tipTau > 0) {                                            // 팁 구면 캡
+    const rTip = w2 + vG() * tipTau;
+    if (dz < rTip) ext = Math.max(ext, Math.min(c.len + Math.sqrt(rTip * rTip - dz * dz), c.len + vG() * tipTau));
+  }
+  return ext;
+}
+
+/* 내벽 조도 Sa: via 벽 반경 프로파일의 (매끈한 taper 대비) 잔차 평균편차 */
+function wallSa(t) {
+  if (!crack.on || t <= 0) return 0;
+  const s = Math.min(surf(t), P.T / 2);
+  const N = 200, res = [];
+  for (let i = 0; i <= N; i++) {
+    const z = s + (P.T - 2 * s) * i / N;
+    const r0 = holeRadius(z, t);
+    if (r0 <= 0) continue;
+    let wall = r0;
+    for (const c of cracks) {
+      if (Math.abs(z - c.z) > crack.w / 2 + vG() * t) continue;
+      const e = crackExtentAt(c, z, t);
+      if (e > wall) wall = e;
+    }
+    res.push(wall - r0);
+  }
+  if (!res.length) return 0;
+  const mu = res.reduce((a, b) => a + b, 0) / res.length;
+  return res.reduce((a, b) => a + Math.abs(b - mu), 0) / res.length;
+}
+
+/* Taper angle: via entrance–waist 벽면이 수평면과 이루는 각도 (수직벽 = 90°).
+ * θ = atan( (T/2 − s) / (r_entrance − r_waist) ) — 관통 전에는 미정의(null) */
+function taperAngle(t) {
+  if (t < tBreak()) return null;
+  const s = Math.min(surf(t), P.T / 2);
+  const h = P.T / 2 - s;
+  if (h <= 0) return null;
+  const rE = holeRadius(s + 1e-9, t);
+  const rW = holeRadius(P.T / 2, t);
+  return Math.atan2(h, Math.max(0, rE - rW)) * 180 / Math.PI;
+}
+
+/* Roundness: waist 단면에서 최소/최대 반경 비 (1 = 완전한 원).
+ * crack 이 waist 를 지나면 방사 돌출로 저하 — 관통 전에는 미정의(null) */
+function roundness(t) {
+  if (t < tBreak()) return null;
+  const rW = holeRadius(P.T / 2, t);
+  if (rW <= 0) return null;
+  let rMax = rW;
+  if (crack.on) {
+    for (const c of cracks) {
+      const e = crackExtentAt(c, P.T / 2, t);
+      if (e > rMax) rMax = e;
+    }
+  }
+  return rW / rMax;
 }
 
 /* Crack 길이 최대값 = Laser modified 직경 × 2 */
@@ -421,7 +498,7 @@ const I18N = {
     etchTime: "식각 시간",
     rRatesL: "식각 속도 (modified / glass)", rBreakL: "관통(breakthrough) 시각",
     rTopL: "입구 직경 (top/bottom)", rWaistL: "Waist 직경 (중앙)",
-    rTaperL: "Taper 각도", rThickL: "잔여 유리 두께",
+    rTaperL: "Taper 각도", rRoundL: "Roundness (waist 기준)", rThickL: "잔여 유리 두께",
     stWait: "대기 — 식각 시작 전",
     stBlind: "Blind via 성장 중 · front 깊이 {f} µm / {h} µm",
     stBreak: "관통 완료 (t = {t} min) — hourglass via 확장 중",
@@ -454,7 +531,7 @@ const I18N = {
     etchTime: "Etch time",
     rRatesL: "Etch rate (modified / glass)", rBreakL: "Breakthrough time",
     rTopL: "Opening diameter (top/bottom)", rWaistL: "Waist diameter (center)",
-    rTaperL: "Taper angle", rThickL: "Remaining glass thickness",
+    rTaperL: "Taper angle", rRoundL: "Roundness (at waist)", rThickL: "Remaining glass thickness",
     stWait: "Idle — etching not started",
     stBlind: "Blind via growing · front depth {f} µm / {h} µm",
     stBreak: "Breakthrough (t = {t} min) — hourglass via widening",
@@ -487,7 +564,7 @@ const I18N = {
     etchTime: "エッチング時間",
     rRatesL: "エッチング速度 (modified / glass)", rBreakL: "貫通時刻",
     rTopL: "開口径 (top/bottom)", rWaistL: "ウエスト径（中央）",
-    rTaperL: "テーパー角", rThickL: "残りガラス厚さ",
+    rTaperL: "テーパー角", rRoundL: "真円度（ウエスト基準）", rThickL: "残りガラス厚さ",
     stWait: "待機 — エッチング開始前",
     stBlind: "ブラインドVia成長中 · フロント深さ {f} µm / {h} µm",
     stBreak: "貫通完了 (t = {t} min) — 砂時計状Viaが拡大中",
@@ -520,7 +597,7 @@ const I18N = {
     etchTime: "蚀刻时间",
     rRatesL: "蚀刻速率 (modified / glass)", rBreakL: "贯通时刻",
     rTopL: "开口直径 (top/bottom)", rWaistL: "腰部直径（中央）",
-    rTaperL: "锥角", rThickL: "剩余玻璃厚度",
+    rTaperL: "锥角", rRoundL: "圆度（腰部）", rThickL: "剩余玻璃厚度",
     stWait: "待机 — 蚀刻尚未开始",
     stBlind: "盲孔生长中 · 蚀刻前沿深度 {f} µm / {h} µm",
     stBreak: "已贯通 (t = {t} min) — 沙漏形通孔扩大中",
@@ -553,7 +630,7 @@ const I18N = {
     etchTime: "蝕刻時間",
     rRatesL: "蝕刻速率 (modified / glass)", rBreakL: "貫通時刻",
     rTopL: "開口直徑 (top/bottom)", rWaistL: "腰部直徑（中央）",
-    rTaperL: "錐角", rThickL: "剩餘玻璃厚度",
+    rTaperL: "錐角", rRoundL: "圓度（腰部）", rThickL: "剩餘玻璃厚度",
     stWait: "待機 — 蝕刻尚未開始",
     stBlind: "盲孔成長中 · 蝕刻前沿深度 {f} µm / {h} µm",
     stBreak: "已貫通 (t = {t} min) — 沙漏形通孔擴大中",
@@ -718,7 +795,10 @@ function updateReadouts() {
   const broke = t >= tBreak();
   const rw = holeRadius(P.T / 2, t);
   $("rWaist").textContent = broke ? fmt(2 * rw) + " µm" : "—";
-  $("rTaper").textContent = fmt(Math.atan2(vG(), vM()) * 180 / Math.PI, 2) + "°";
+  const ta = taperAngle(t);
+  $("rTaper").textContent = ta !== null ? fmt(ta, 1) + "°" : "—";
+  const rd = roundness(t);
+  $("rRound").textContent = rd !== null ? fmt(rd, 3) : "—";
   $("rThick").textContent = fmt(Math.max(0, P.T - 2 * surf(t)), 1) + " µm";
   const st = $("rStatus");
   if (t <= 0) { st.textContent = i18nT("stWait"); st.className = "status"; }
@@ -919,6 +999,26 @@ function draw2D() {
   ctx2.fillStyle = annC;
   ctx2.textAlign = "left";
   ctx2.fillText("t = " + fmt(t, 2) + " min", mL, H - 8);
+
+  // 실시간 수치 (우상단): Taper·Roundness 는 관통 후에만, Sa 는 crack 포함 모드에서만
+  ctx2.textAlign = "right";
+  let ry = mT + 2;
+  const taC = taperAngle(t);
+  if (taC !== null) {
+    ctx2.fillStyle = annC;
+    ctx2.fillText("Taper " + fmt(taC, 1) + "°", W - mR, ry);
+    ry += 16;
+  }
+  const rdC = roundness(t);
+  if (rdC !== null) {
+    ctx2.fillStyle = "#7dffb0";
+    ctx2.fillText("Roundness " + fmt(rdC, 3), W - mR, ry);
+    ry += 16;
+  }
+  if (crack.on) {
+    ctx2.fillStyle = "#ffd24d";
+    ctx2.fillText("Sa ≈ " + fmt(wallSa(t), 2) + " µm", W - mR, ry);
+  }
 }
 
 /* ══════════════════════════ 3D volume rendering ══════════════════════════ */
