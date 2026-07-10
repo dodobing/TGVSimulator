@@ -127,11 +127,11 @@
 
     <div class="param">
       <label><span data-i18n="pThickL">유리 두께</span> <b><span id="vThick"></span> µm</b></label>
-      <input type="range" id="pThick" min="50" max="1000" step="10" value="300">
+      <input type="range" id="pThick" min="50" max="1000" step="10" value="500">
     </div>
     <div class="param">
       <label><span data-i18n="pDiamL">Laser modified 직경</span> <b><span id="vDiam"></span> µm</b></label>
-      <input type="range" id="pDiam" min="0.5" max="6" step="0.5" value="5">
+      <input type="range" id="pDiam" min="0.5" max="6" step="0.5" value="3">
     </div>
     <div class="param">
       <label><span data-i18n="pTiltL">중심 Tilt (top→bottom, XY 동일)</span> <b><span id="vTilt"></span> µm</b></label>
@@ -139,7 +139,7 @@
     </div>
     <div class="param">
       <label><span data-i18n="pSelML">Modified area 식각 selectivity</span> <b>×<span id="vSelM"></span></b></label>
-      <input type="range" id="pSelM" min="1" max="500" step="1" value="50">
+      <input type="range" id="pSelM" min="1" max="500" step="1" value="20">
     </div>
     <div class="param">
       <label><span data-i18n="pSelGL">유리 식각 selectivity</span> <b>×<span id="vSelG"></span></b></label>
@@ -207,7 +207,7 @@
         <input type="range" id="pAspect" min="0" max="100" step="1" value="50">
       </div>
       <div class="opts" style="margin-top:2px;">
-        <label><input type="checkbox" id="optAuto" checked> <span data-i18n="autoFit">자동 맞춤</span></label>
+        <label><input type="checkbox" id="optAuto"> <span data-i18n="autoFit">자동 맞춤</span></label>
         <button class="mini" id="btnRatio1" data-i18n="ratio1">1:1 실축척</button>
       </div>
     </div>
@@ -283,7 +283,7 @@
  *      ζ = min(z, T−z),  ζ ≤ f(t) 이면 r = d/2 + vG·(t − ζ/vM)
  * → 경사(taper) tanθ = vG/vM = Sg/Sm 인 모래시계(hourglass) 프로파일.
  */
-const P = { T: 300, d: 5, Sm: 50, Sg: 1, R0: 1, tilt: 0 };
+const P = { T: 500, d: 3, Sm: 20, Sg: 1, R0: 1, tilt: 0 };
 const sim = { t: 0, tEnd: 1, playing: false, speed: 1 };
 
 const vG = () => P.R0 * P.Sg;
@@ -484,7 +484,7 @@ function updateCrackIntMin() {
  * M = 수평 확대 배율 (수직 축척 대비). auto 이면 각 뷰가 via 가
  * 잘 보이도록 자동 계산, manual 이면 슬라이더 값 M 을 양쪽에 적용.
  * 슬라이더(0–100)는 log 스케일로 M = 0.5 … 200 에 매핑. */
-const aspect = { auto: true, M: 10 };
+const aspect = { auto: false, M: 1 };
 const A_LO = Math.log10(0.5), A_HI = Math.log10(200);
 const sliderToM = v => Math.pow(10, A_LO + (v / 100) * (A_HI - A_LO));
 const mToSlider = M => Math.round((Math.log10(M) - A_LO) / (A_HI - A_LO) * 100);
@@ -1332,7 +1332,7 @@ updateCrackAngMax();
 regenCracks();
 syncCrackPanel();
 syncTime();
-aspect.M = sliderToM(+$("pAspect").value);
+$("pAspect").value = mToSlider(aspect.M);   // 기본 표시 배율(1:1 실축척)로 슬라이더 위치 설정
 updateAspectLabel();
 applyLang();   // 기본 언어(영어)로 초기 렌더
 try { initGL(); } catch (e) {
