@@ -13,6 +13,7 @@ Single self-contained HTML file — just open [`tgv-simulator.html`](tgv-simulat
 - **3D volume rendering**: WebGL raymarching 기반 — 유리는 투명(테두리 와이어프레임), 형성된 via는 컬러 본체로 렌더링, 1/4 cut-away 지원
 - **수직/수평 표시 배율**: 자동 맞춤 · 수동(×0.5–200) · 1:1 실축척, 2D/3D 공통 적용
 - **재생 제어**: ×0.5 – ×100 재생속도, 시간 슬라이더 스크럽
+- **Crack 포함 모드**: laser modification 유발 micro-crack 을 Z slice 단위로 배치(길이/두께/개수/상대각도/변동율/간격 파라미터, 오버레이 패널), modified area 와 동일한 selectivity 로 crack 을 따라 식각 전파 — 2D fin + 3D blade 렌더링
 - **다국어 UI**: 한국어 · English · 日本語 · 简体中文 · 繁體中文
 
 ## Physics model

@@ -55,6 +55,14 @@
     border-radius: 8px; background: var(--panel2);
   }
   .subgroup h3 { font-size: 11px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  /* Crack 파라미터: 화면을 늘리지 않는 오버레이 팝오버 */
+  #crackPanel {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    width: 250px; margin: 0; z-index: 30;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    border-color: #33415e;
+    max-height: 62vh; overflow-y: auto;
+  }
   .controls { display: flex; gap: 8px; margin: 10px 0; }
   button {
     background: var(--panel2); color: var(--text);
@@ -117,7 +125,7 @@
     </div>
     <div class="param">
       <label><span data-i18n="pDiamL">Laser modified 직경</span> <b><span id="vDiam"></span> µm</b></label>
-      <input type="range" id="pDiam" min="0.5" max="20" step="0.5" value="5">
+      <input type="range" id="pDiam" min="0.5" max="6" step="0.5" value="5">
     </div>
     <div class="param">
       <label><span data-i18n="pSelML">Modified area 식각 selectivity</span> <b>×<span id="vSelM"></span></b></label>
@@ -136,6 +144,48 @@
       <input type="range" id="pTEnd" min="0" max="100" step="1" value="50">
       <div class="opts" style="margin-top:2px;">
         <label><input type="checkbox" id="optTEndAuto" checked> <span data-i18n="tEndAuto">자동 (관통 + 확장 구간)</span></label>
+      </div>
+    </div>
+
+    <!-- Crack 포함 모드 (파라미터는 오버레이 팝오버) -->
+    <div class="opts" style="margin:2px 0 10px; position:relative;">
+      <label><input type="checkbox" id="optCrack"> <span data-i18n="crackMode">Crack 포함 모드</span></label>
+      <button class="mini" id="btnCrackPanel" style="display:none;"></button>
+      <div class="subgroup" id="crackPanel" style="display:none;">
+      <h3 data-i18n="crackTitle">Crack 파라미터</h3>
+      <div class="param">
+        <label><span data-i18n="cLenL">Crack 길이</span> <b><span id="vCLen"></span> µm</b></label>
+        <input type="range" id="pCLen" min="0.5" max="10" step="0.5" value="10">
+      </div>
+      <div class="param">
+        <label><span data-i18n="cThkL">Crack 두께 (Z)</span> <b><span id="vCThk"></span> µm</b></label>
+        <input type="range" id="pCThk" min="0.2" max="5" step="0.1" value="1">
+      </div>
+      <div class="param">
+        <label><span data-i18n="cLenVarL">길이 변동율</span> <b>±<span id="vCLenVar"></span> %</b></label>
+        <input type="range" id="pCLenVar" min="0" max="100" step="5" value="20">
+      </div>
+      <div class="param">
+        <label><span data-i18n="cCntL">Z slice 당 개수</span> <b><span id="vCCnt"></span></b></label>
+        <input type="range" id="pCCnt" min="1" max="6" step="1" value="2">
+      </div>
+      <div class="param">
+        <label><span data-i18n="cAngL">Crack 간 상대 각도</span> <b><span id="vCAng"></span>°</b></label>
+        <input type="range" id="pCAng" min="0" max="180" step="5" value="180">
+      </div>
+      <div class="param">
+        <label><span data-i18n="cAngVarL">Slice 간 각도 변동</span> <b>±<span id="vCAngVar"></span>°</b></label>
+        <input type="range" id="pCAngVar" min="0" max="90" step="5" value="30">
+      </div>
+      <div class="param">
+        <label><span data-i18n="cCntVarL">개수 변화량</span> <b>±<span id="vCCntVar"></span></b></label>
+        <input type="range" id="pCCntVar" min="0" max="3" step="1" value="1">
+      </div>
+      <div class="param" style="margin-bottom:0;">
+        <label><span data-i18n="cIntL">Z slice 간격</span> <b><span id="vCInt"></span> µm</b></label>
+        <input type="range" id="pCInt" min="5" max="100" step="5" value="20">
+      </div>
+      <div class="hint" style="margin-top:8px;"><span data-i18n="cWidthNote">폭(XY)은 0.5 µm 고정</span></div>
       </div>
     </div>
 
@@ -184,6 +234,7 @@
       <span><i style="background:#5b7f9e"></i><span data-i18n="legGlass">유리</span></span>
       <span><i style="background:#ff8a3d"></i><span data-i18n="legTrack">Laser modified track</span></span>
       <span><i style="background:#0d2233"></i><span data-i18n="legEtch">식각액 / Via</span></span>
+      <span id="legCrack2d" style="display:none;"><i style="background:#ffd24d"></i><span data-i18n="legCrack">Crack (미식각)</span></span>
     </div>
     <div class="hint"><span data-i18n="vTrue">수직 = 실제 축척</span><span id="hScale2d"></span></div>
   </div>
@@ -196,6 +247,7 @@
       <span><i style="background:#1ae69e"></i><span data-i18n="legVia">Via (식각 형성)</span></span>
       <span><i style="background:#ff8a3d"></i><span data-i18n="legTrack3d">Laser modified track</span></span>
       <span><i style="background:#8fb6e0"></i><span data-i18n="legGlass3d">유리 (투명 · 테두리만)</span></span>
+      <span id="legCrack3d" style="display:none;"><i style="background:#ffd24d"></i><span data-i18n="legCrack">Crack (미식각)</span></span>
     </div>
     <div class="opts">
       <label><input type="checkbox" id="optCut"> <span data-i18n="cutaway">1/4 cut-away</span></label>
@@ -255,6 +307,90 @@ const surf = t => vG() * t;              // 표면 후퇴량
 const front = t => Math.min(vM() * t, P.T / 2);
 const rMaxEnd = () => P.d / 2 + vG() * sim.tEnd;   // 최대 반경(스케일용)
 
+/* ══════════════════════ Crack 포함 모드 ══════════════════════
+ * Crack = 특정 Z slice 에서 중심으로부터 방사형으로 뻗는 얇은 판.
+ * 식각 selectivity 는 modified area 와 동일(Sm):
+ *  - etchant 도달 시각  t_a = ζ/vM  (track front 가 해당 깊이 통과)
+ *  - crack 을 따라 vM 으로 전파, 통과 후 주변은 vG 로 등방 확장
+ * 파라미터 변경 시 시드 기반으로 결정론적 재생성 (매 프레임 동일). */
+const crack = { on: false, L: 20, w: 1, lenVar: 20, n: 2, relAng: 180, angVar: 30, nVar: 1, dz: 20 };
+const MAXC = 96;                          // 3D shader uniform 배열 한계
+let cracks = [];                          // {z, ang(rad), len}
+const crackData = new Float32Array(MAXC * 4);
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let x = Math.imul(a ^ (a >>> 15), 1 | a);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function regenCracks() {
+  cracks = [];
+  if (!crack.on) return;
+  const seed = Math.round(
+    1e6 + P.T * 7 + crack.dz * 13 + crack.n * 97 + crack.relAng * 3 +
+    crack.L * 31 + crack.lenVar * 11 + crack.angVar * 17 + crack.nVar * 23 + crack.w * 410
+  );
+  const rnd = mulberry32(seed);
+  let base = rnd() * 360;
+  // slice 를 두께에 균일·대칭 분포: n = floor(T/dz) 개를 T/(n+1) 간격으로 배치
+  // → 위/아래 여백이 동일해 crack 이 유리 상하에 균일하게 존재
+  const nSlice = Math.max(1, Math.floor(P.T / crack.dz));
+  const spacing = P.T / (nSlice + 1);
+  outer:
+  for (let k = 1; k <= nSlice; k++) {
+    const z = k * spacing;
+    base += (rnd() * 2 - 1) * crack.angVar;
+    const cnt = Math.max(0, crack.n + Math.floor(rnd() * (2 * crack.nVar + 1)) - crack.nVar);
+    if (z - crack.w / 2 < 0 || z + crack.w / 2 > P.T) continue;  // 유리 두께를 벗어나는 crack 제외
+    for (let j = 0; j < cnt; j++) {
+      const ang = (base + j * crack.relAng) * Math.PI / 180;
+      const len = Math.max(0.5, crack.L * (1 + (rnd() * 2 - 1) * crack.lenVar / 100));
+      cracks.push({ z, ang, len });
+      if (cracks.length >= MAXC) break outer;
+    }
+  }
+}
+
+/* Crack 길이 최대값 = Laser modified 직경 × 2 */
+function updateCrackLenMax() {
+  const el = document.getElementById("pCLen");
+  if (!el) return;
+  const maxL = 2 * P.d;
+  el.max = maxL;
+  if (+el.value > maxL) el.value = maxL;
+  crack.L = +el.value;
+  const disp = document.getElementById("vCLen");
+  if (disp) disp.textContent = crack.L.toFixed(1);
+}
+
+/* Crack 간 상대 각도 최대값 = 360° / Z slice 당 개수 (전체 원주 초과 방지) */
+function updateCrackAngMax() {
+  const el = document.getElementById("pCAng");
+  if (!el) return;
+  const maxA = Math.max(5, Math.floor(360 / Math.max(1, crack.n)));
+  el.max = maxA;
+  if (+el.value > maxA) el.value = maxA;
+  crack.relAng = +el.value;
+  const disp = document.getElementById("vCAng");
+  if (disp) disp.textContent = crack.relAng.toFixed(0);
+}
+
+/* Z slice 간격 최소값은 유리 두께에 연동 (slice 수를 3D 렌더 한계 내로 유지) */
+function updateCrackIntMin() {
+  const el = document.getElementById("pCInt");
+  if (!el) return;
+  const minInt = Math.max(5, Math.ceil(P.T / 48));
+  el.min = minInt;
+  if (+el.value < minInt) el.value = minInt;
+  crack.dz = +el.value;
+  const disp = document.getElementById("vCInt");
+  if (disp) disp.textContent = crack.dz.toFixed(0);
+}
+
 /* ══════════════ 수직/수평 표시 배율 (2D·3D 공통) ══════════════
  * M = 수평 확대 배율 (수직 축척 대비). auto 이면 각 뷰가 via 가
  * 잘 보이도록 자동 계산, manual 이면 슬라이더 값 M 을 양쪽에 적용.
@@ -297,7 +433,13 @@ const I18N = {
     cutaway: "1/4 cut-away", spin: "자동 회전",
     drag: "드래그: 회전 · 휠: 확대/축소",
     auto: "자동", manual: "수동",
-    hExpand: "수평 확대 ×", hShrink: "수평 축소 ×", oneToOne: "1:1 축척"
+    hExpand: "수평 확대 ×", hShrink: "수평 축소 ×", oneToOne: "1:1 축척",
+    crackMode: "Crack 포함 모드", crackTitle: "Crack 파라미터",
+    cLenL: "Crack 길이", cThkL: "Crack 두께 (Z)", cLenVarL: "길이 변동율",
+    cCntL: "Z slice 당 개수", cAngL: "Crack 간 상대 각도", cAngVarL: "Slice 간 각도 변동",
+    cCntVarL: "개수 변화량", cIntL: "Z slice 간격", legCrack: "Crack (미식각)",
+    showCrackP: "▸ 파라미터 보기", hideCrackP: "▾ 파라미터 숨기기",
+    cWidthNote: "폭(XY)은 0.5 µm 고정"
   },
   en: {
     subtitle: "Through-glass via formation by laser modification + chemical etching — cross-section time evolution + 3D volume rendering",
@@ -324,7 +466,13 @@ const I18N = {
     cutaway: "1/4 cut-away", spin: "Auto rotate",
     drag: "Drag: rotate · Wheel: zoom",
     auto: "auto", manual: "manual",
-    hExpand: "H. zoom ×", hShrink: "H. shrink ×", oneToOne: "1:1 scale"
+    hExpand: "H. zoom ×", hShrink: "H. shrink ×", oneToOne: "1:1 scale",
+    crackMode: "Include cracks", crackTitle: "Crack parameters",
+    cLenL: "Crack length", cThkL: "Crack thickness (Z)", cLenVarL: "Length variation",
+    cCntL: "Cracks per Z slice", cAngL: "Relative angle", cAngVarL: "Angle variation / slice",
+    cCntVarL: "Count variation", cIntL: "Z-slice interval", legCrack: "Crack (unetched)",
+    showCrackP: "▸ Show parameters", hideCrackP: "▾ Hide parameters",
+    cWidthNote: "XY width fixed at 0.5 µm"
   },
   ja: {
     subtitle: "レーザー改質＋化学エッチングによる Through-Glass Via 形成 — 断面の時間発展 + 3D ボリュームレンダリング",
@@ -351,7 +499,13 @@ const I18N = {
     cutaway: "1/4 カットアウェイ", spin: "自動回転",
     drag: "ドラッグ: 回転 · ホイール: ズーム",
     auto: "自動", manual: "手動",
-    hExpand: "水平拡大 ×", hShrink: "水平縮小 ×", oneToOne: "1:1 尺度"
+    hExpand: "水平拡大 ×", hShrink: "水平縮小 ×", oneToOne: "1:1 尺度",
+    crackMode: "クラックを含める", crackTitle: "クラックパラメータ",
+    cLenL: "クラック長さ", cThkL: "クラック厚さ（Z）", cLenVarL: "長さ変動率",
+    cCntL: "Zスライス当たり本数", cAngL: "クラック間相対角度", cAngVarL: "スライス間角度変動",
+    cCntVarL: "本数変動", cIntL: "Zスライス間隔", legCrack: "クラック（未エッチング）",
+    showCrackP: "▸ パラメータ表示", hideCrackP: "▾ パラメータ非表示",
+    cWidthNote: "幅（XY）は 0.5 µm 固定"
   },
   zh: {
     subtitle: "激光改质 + 化学蚀刻形成玻璃通孔 (TGV) — 剖面时间演化 + 3D 体渲染",
@@ -378,7 +532,13 @@ const I18N = {
     cutaway: "1/4 剖切", spin: "自动旋转",
     drag: "拖拽：旋转 · 滚轮：缩放",
     auto: "自动", manual: "手动",
-    hExpand: "水平放大 ×", hShrink: "水平缩小 ×", oneToOne: "1:1 比例"
+    hExpand: "水平放大 ×", hShrink: "水平缩小 ×", oneToOne: "1:1 比例",
+    crackMode: "包含裂纹", crackTitle: "裂纹参数",
+    cLenL: "裂纹长度", cThkL: "裂纹厚度（Z）", cLenVarL: "长度变动率",
+    cCntL: "每Z切片数量", cAngL: "裂纹间相对角度", cAngVarL: "切片间角度变动",
+    cCntVarL: "数量变动", cIntL: "Z切片间隔", legCrack: "裂纹（未蚀刻）",
+    showCrackP: "▸ 显示参数", hideCrackP: "▾ 隐藏参数",
+    cWidthNote: "宽度（XY）固定为 0.5 µm"
   },
   tw: {
     subtitle: "雷射改質 + 化學蝕刻形成玻璃通孔 (TGV) — 剖面時間演化 + 3D 體渲染",
@@ -405,7 +565,13 @@ const I18N = {
     cutaway: "1/4 剖切", spin: "自動旋轉",
     drag: "拖曳：旋轉 · 滾輪：縮放",
     auto: "自動", manual: "手動",
-    hExpand: "水平放大 ×", hShrink: "水平縮小 ×", oneToOne: "1:1 比例"
+    hExpand: "水平放大 ×", hShrink: "水平縮小 ×", oneToOne: "1:1 比例",
+    crackMode: "包含裂紋", crackTitle: "裂紋參數",
+    cLenL: "裂紋長度", cThkL: "裂紋厚度（Z）", cLenVarL: "長度變動率",
+    cCntL: "每Z切片數量", cAngL: "裂紋間相對角度", cAngVarL: "切片間角度變動",
+    cCntVarL: "數量變動", cIntL: "Z切片間隔", legCrack: "裂紋（未蝕刻）",
+    showCrackP: "▸ 顯示參數", hideCrackP: "▾ 隱藏參數",
+    cWidthNote: "寬度（XY）固定為 0.5 µm"
   }
 };
 let lang = "ko";
@@ -419,6 +585,7 @@ function applyLang() {
   });
   updatePlayBtn();
   updateAspectLabel();
+  syncCrackPanel();
   recomputeEnd();
   requestDraw();
 }
@@ -426,7 +593,7 @@ function applyLang() {
 function bindParam(id, key, disp, dn = 1) {
   const el = $(id);
   const show = () => { $(disp).textContent = fmt(+el.value, dn); };
-  el.addEventListener("input", () => { P[key] = +el.value; show(); recomputeEnd(); syncTime(); requestDraw(); });
+  el.addEventListener("input", () => { P[key] = +el.value; show(); recomputeEnd(); regenCracks(); syncTime(); requestDraw(); });
   P[key] = +el.value; show();
 }
 bindParam("pThick", "T", "vThick", 0);
@@ -434,6 +601,46 @@ bindParam("pDiam", "d", "vDiam", 1);
 bindParam("pSelM", "Sm", "vSelM", 0);
 bindParam("pSelG", "Sg", "vSelG", 1);
 bindParam("pRate", "R0", "vRate", 1);
+
+/* Crack 컨트롤 */
+function bindCrackParam(id, key, disp, dn = 0) {
+  const el = $(id);
+  const show = () => { $(disp).textContent = fmt(+el.value, dn); };
+  el.addEventListener("input", () => { crack[key] = +el.value; show(); regenCracks(); requestDraw(); });
+  crack[key] = +el.value; show();
+}
+bindCrackParam("pCLen", "L", "vCLen", 1);
+bindCrackParam("pCThk", "w", "vCThk", 1);
+bindCrackParam("pCLenVar", "lenVar", "vCLenVar", 0);
+bindCrackParam("pCCnt", "n", "vCCnt", 0);
+bindCrackParam("pCAng", "relAng", "vCAng", 0);
+bindCrackParam("pCAngVar", "angVar", "vCAngVar", 0);
+bindCrackParam("pCCntVar", "nVar", "vCCntVar", 0);
+bindCrackParam("pCInt", "dz", "vCInt", 0);
+/* Crack 파라미터 패널: 접이식 — 버튼을 눌렀을 때만 표시 */
+let crackPanelOpen = false;
+function syncCrackPanel() {
+  $("btnCrackPanel").style.display = crack.on ? "" : "none";
+  $("crackPanel").style.display = (crack.on && crackPanelOpen) ? "" : "none";
+  $("btnCrackPanel").textContent = t(crackPanelOpen ? "hideCrackP" : "showCrackP");
+}
+$("btnCrackPanel").addEventListener("click", () => {
+  crackPanelOpen = !crackPanelOpen;
+  syncCrackPanel();
+});
+$("optCrack").addEventListener("change", e => {
+  crack.on = e.target.checked;
+  syncCrackPanel();
+  $("legCrack2d").style.display = crack.on ? "" : "none";
+  $("legCrack3d").style.display = crack.on ? "" : "none";
+  regenCracks(); requestDraw();
+});
+/* 유리 두께 변경 시 Z slice 간격 최소값 갱신 */
+$("pThick").addEventListener("input", () => { updateCrackIntMin(); regenCracks(); requestDraw(); });
+/* 직경 변경 시 Crack 길이 최대값 갱신 */
+$("pDiam").addEventListener("input", () => { updateCrackLenMax(); regenCracks(); requestDraw(); });
+/* Z slice 당 개수 변경 시 상대 각도 최대값 갱신 */
+$("pCCnt").addEventListener("input", () => { updateCrackAngMax(); regenCracks(); requestDraw(); });
 
 /* 표시 배율 컨트롤 */
 function updateAspectLabel() {
@@ -545,7 +752,8 @@ function draw2D() {
   const mL = 58, mR = 16, mT = 26, mB = 26;
   const availW = W - mL - mR, availH = H - mT - mB;
   const scaleY = availH / P.T;
-  const halfWNeeded = Math.max(rMaxEnd() * 1.35, P.d * 2);
+  const crackMax = crack.on ? crack.L * (1 + crack.lenVar / 100) * 1.25 : 0;
+  const halfWNeeded = Math.max(rMaxEnd() * 1.35, P.d * 2, crackMax);
   let scaleX = aspect.auto
     ? availW / (2 * halfWNeeded)      // 자동: via 최대 폭이 캔버스에 맞도록
     : scaleY * aspect.M;              // 수동: 수직 축척 × M
@@ -614,6 +822,42 @@ function draw2D() {
       drawHole(P.T - f, P.T - s + ov);
     } else {                     // 관통 상태
       drawHole(s - ov, P.T - s + ov);
+    }
+  }
+
+  // Crack: 미식각 구간(황색 선) + 식각된 fin (단면은 방사 방향 envelope 을 좌우 대칭으로 표시)
+  if (crack.on) {
+    for (const c of cracks) {
+      if (c.z < s || c.z > P.T - s) continue;          // 표면 후퇴로 소멸
+      const tau0 = t - Math.min(c.z, P.T - c.z) / vM(); // etchant 도달 후 경과시간
+      const rhoF = tau0 > 0 ? Math.min(vM() * tau0, c.len) : 0;   // crack 내 식각 front
+      if (rhoF < c.len) {                               // 미식각 crack 선
+        ctx2.strokeStyle = "#ffd24d";
+        ctx2.lineWidth = Math.max(1, crack.w * scaleY);
+        ctx2.beginPath();
+        ctx2.moveTo(xr(rhoF), zy(c.z)); ctx2.lineTo(xr(c.len), zy(c.z));
+        ctx2.moveTo(xr(-rhoF), zy(c.z)); ctx2.lineTo(xr(-c.len), zy(c.z));
+        ctx2.stroke();
+        ctx2.lineWidth = 1;
+      }
+      if (tau0 <= 0) continue;
+      // 식각된 fin: 뿌리에서 두껍고 front 쪽으로 가늘어지는 프로파일 + 팁 구면 캡
+      const tipTau = tau0 - c.len / vM();
+      const rTipC = crack.w / 2 + vG() * Math.max(0, tipTau);
+      const rhoMax = rhoF + (tipTau > 0 ? vG() * tipTau : 0);
+      const half = rho => rho <= c.len
+        ? crack.w / 2 + vG() * Math.max(0, tau0 - rho / vM())
+        : Math.sqrt(Math.max(0, rTipC * rTipC - (rho - c.len) ** 2));
+      const M = 24;
+      ctx2.fillStyle = "#0d2233";
+      for (const sgn of [1, -1]) {
+        ctx2.beginPath();
+        ctx2.moveTo(xr(0), zy(c.z - half(0)));
+        for (let k = 1; k <= M; k++) { const rho = rhoMax * k / M; ctx2.lineTo(xr(sgn * rho), zy(c.z - half(rho))); }
+        for (let k = M; k >= 0; k--) { const rho = rhoMax * k / M; ctx2.lineTo(xr(sgn * rho), zy(c.z + half(rho))); }
+        ctx2.closePath();
+        ctx2.fill();
+      }
     }
   }
 
@@ -701,8 +945,11 @@ uniform float uAniso;    // display xy → 물리 xy 환산비
 uniform float uR0;       // track 반경 d/2
 uniform float uVg, uVm, uTime;
 uniform float uCut;
+uniform int   uNC;       // crack 개수 (0 = crack 모드 off)
+uniform float uCw;       // crack 두께 (µm)
+uniform vec4  uCracks[96]; // x: z(중심계 µm), y: 각도(rad), z: 길이, w: etchant 도달 시각
 
-// 물질 종류: 0 = 없음, 1 = 유리, 2 = modified track, 3 = 형성된 via(식각 공동)
+// 물질 종류: 0=없음, 1=유리, 2=modified track, 3=식각 공동(via·crack), 5=미식각 crack
 int material(vec3 p) {
   float sTop = uVg * uTime;
   float zTop = uT * 0.5 - sTop;
@@ -718,6 +965,29 @@ int material(vec3 p) {
     if (rr < r) return 3;                              // via 공동 → 컬러 본체로 렌더
   } else if (rr < uR0) {
     return 2;                                          // 미식각 modified track
+  }
+  // Crack: capsule(선분 주위) 판정 — 식각 sheath(3) / 미식각 본체(5)
+  for (int i = 0; i < 96; i++) {
+    if (i >= uNC) break;
+    vec4 c = uCracks[i];
+    float dzc = p.z - c.x;
+    float tau0 = uTime - c.w;
+    float hMax = uCw * 0.5 + ((tau0 > 0.0) ? uVg * tau0 : 0.0);
+    if (abs(dzc) > hMax) continue;                     // z 근접 조기 기각
+    vec2 dir = vec2(cos(c.y), sin(c.y));
+    float along = dot(xy, dir);
+    if (along < -hMax || along > c.z + hMax) continue;
+    // crack 단면: 두께(uCw)는 Z 방향, 폭(XY 접선 방향)은 0.5 µm 고정 (반폭 0.25)
+    if (tau0 > 0.0) {                                  // 식각 sheath: crack 따라 vM 전파 + vG 등방 확장
+      float rhoE = clamp(along, 0.0, min(c.z, uVm * tau0));
+      float tauL = tau0 - rhoE / uVm;
+      vec2 q = xy - dir * rhoE;
+      float g = uVg * max(tauL, 0.0);
+      if (tauL > 0.0 && length(q) < 0.25 + g && abs(dzc) < uCw * 0.5 + g) return 3;
+    }
+    float rhoC = clamp(along, 0.0, c.z);               // 미식각 crack 본체
+    vec2 q2 = xy - dir * rhoC;
+    if (length(q2) < 0.25 && abs(dzc) < uCw * 0.5) return 5;
   }
   return 1;
 }
@@ -761,10 +1031,12 @@ void main() {
     vec3 trackC = vec3(1.00, 0.48, 0.15);   // 미식각 modified track
     vec3 viaC   = vec3(0.10, 0.90, 0.62);   // 형성된 via (컬러 본체)
     vec3 edgeC  = vec3(0.60, 0.78, 1.00);   // 유리 슬랩 테두리
+    vec3 crackC = vec3(1.00, 0.82, 0.30);   // 미식각 crack
     float kGlass = 0.45 / uT;
     float kTrack = 30.0 / uT;
     float kVia   = 9.0 / uT;
     float kEdge  = 80.0 / uT;               // 얇은 선이 또렷하게 보이도록 고밀도
+    float kCrack = 30.0 / uT;
     float zTop  = uT * 0.5 - uVg * uTime;   // 현재 슬랩 상·하면
     float epsXY = uHW * 0.022;
     float epsZ  = uT * 0.012;
@@ -784,8 +1056,8 @@ void main() {
         }
         if (nr >= 2) m = 4;
       }
-      float dens = (m == 2) ? kTrack : (m == 3) ? kVia : (m == 4) ? kEdge : kGlass;
-      vec3 col  = (m == 2) ? trackC : (m == 3) ? viaC : (m == 4) ? edgeC : glassC;
+      float dens = (m == 2) ? kTrack : (m == 3) ? kVia : (m == 4) ? kEdge : (m == 5) ? kCrack : kGlass;
+      vec3 col  = (m == 2) ? trackC : (m == 3) ? viaC : (m == 4) ? edgeC : (m == 5) ? crackC : glassC;
       // 깊이에 따른 미묘한 음영
       col *= 0.85 + 0.15 * (p.z / (uT * 0.5));
       float a = 1.0 - exp(-dens * dt);
@@ -819,7 +1091,7 @@ function initGL() {
   const loc = gl.getAttribLocation(prog, "aPos");
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  ["uRes", "uYaw", "uPitch", "uDist", "uT", "uHW", "uAniso", "uR0", "uVg", "uVm", "uTime", "uCut"]
+  ["uRes", "uYaw", "uPitch", "uDist", "uT", "uHW", "uAniso", "uR0", "uVg", "uVm", "uTime", "uCut", "uNC", "uCw", "uCracks"]
     .forEach(n => uni[n] = gl.getUniformLocation(prog, n));
 }
 
@@ -837,7 +1109,8 @@ function draw3D() {
   const dispHW = 0.40 * P.T;
   let aniso;
   if (aspect.auto) {
-    const physHW = Math.max(rMaxEnd() * 1.5, P.d * 2.5);
+    const crackHW = crack.on ? crack.L * (1 + crack.lenVar / 100) * 1.4 : 0;
+    const physHW = Math.max(rMaxEnd() * 1.5, P.d * 2.5, crackHW);
     aniso = physHW / dispHW;
   } else {
     aniso = 1 / aspect.M;
@@ -857,6 +1130,19 @@ function draw3D() {
   gl.uniform1f(uni.uVm, vM());
   gl.uniform1f(uni.uTime, sim.t);
   gl.uniform1f(uni.uCut, $("optCut").checked ? 1 : 0);
+
+  // crack 데이터 업로드 (도달 시각이 vM 에 의존하므로 매 프레임 재계산)
+  const nc = crack.on ? cracks.length : 0;
+  for (let i = 0; i < nc; i++) {
+    const c = cracks[i];
+    crackData[i * 4]     = P.T / 2 - c.z;   // 2D z(0=상면) → shader z(+가 상면)
+    crackData[i * 4 + 1] = c.ang;
+    crackData[i * 4 + 2] = c.len;
+    crackData[i * 4 + 3] = Math.min(c.z, P.T - c.z) / vM();
+  }
+  gl.uniform1i(uni.uNC, nc);
+  gl.uniform1f(uni.uCw, crack.w);
+  gl.uniform4fv(uni.uCracks, crackData);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
@@ -901,6 +1187,11 @@ function loop(ts) {
 }
 
 recomputeEnd();
+updateCrackIntMin();
+updateCrackLenMax();
+updateCrackAngMax();
+regenCracks();
+syncCrackPanel();
 syncTime();
 aspect.M = sliderToM(+$("pAspect").value);
 updateAspectLabel();
