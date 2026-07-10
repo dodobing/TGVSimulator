@@ -444,11 +444,11 @@ function roundness(t) {
   return rW / rMax;
 }
 
-/* Crack 길이 최대값 = Laser modified 직경 × 2 */
+/* Crack 길이 최대값 = Laser modified 직경 × 5 */
 function updateCrackLenMax() {
   const el = document.getElementById("pCLen");
   if (!el) return;
-  const maxL = 2 * P.d;
+  const maxL = 5 * P.d;
   el.max = maxL;
   if (+el.value > maxL) el.value = maxL;
   crack.L = +el.value;
