@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TGV Formation Simulator — Laser Modification + Chemical Etching</title>
+<style>
+  :root {
+    --bg: #0e1420;
+    --panel: #161e2e;
+    --panel2: #1c2638;
+    --line: #2a3650;
+    --text: #dce6f5;
+    --dim: #8fa1bd;
+    --accent: #4db8ff;
+    --track: #ff8a3d;
+    --etch: #071019;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  header { margin-bottom: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.3px; }
+  header p { font-size: 12px; color: var(--dim); margin-top: 3px; }
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 1fr;
+    gap: 12px;
+    align-items: stretch;
+  }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel);
+    border: 1px solid #253244;
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+  }
+  .card h2 {
+    font-size: 12px; font-weight: 600; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;
+  }
+  .param { margin-bottom: 12px; }
+  .param label { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+  .param label b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .param input[type=range] { width: 100%; accent-color: var(--accent); }
+  .subgroup {
+    margin: 12px 0; padding: 10px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--panel2);
+  }
+  .subgroup h3 { font-size: 11px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .controls { display: flex; gap: 8px; margin: 10px 0; }
+  button {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid #33415e; border-radius: 6px;
+    padding: 7px 12px; font-size: 13px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #144a6e; border-color: var(--accent); }
+  button.mini { padding: 3px 8px; font-size: 11px; }
+  select {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid #33415e; border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; cursor: pointer;
+  }
+  select:hover { border-color: var(--accent); }
+  .headrow { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .timebox { margin-top: 4px; }
+  .timebox input[type=range] { width: 100%; accent-color: var(--track); }
+  .readouts { margin-top: 12px; border-top: 1px solid #2a3650; padding-top: 10px; font-size: 12px; }
+  .readouts div { display: flex; justify-content: space-between; padding: 3px 0; }
+  .readouts span { color: var(--dim); }
+  .readouts b { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .status { margin-top: 8px; text-align: center; font-size: 12px; padding: 5px; border-radius: 6px; background: var(--panel2); color: var(--dim); }
+  .status.break { color: #7dffb0; }
+  canvas { display: block; width: 100%; border-radius: 8px; background: var(--etch); flex: 1; }
+  .canvaswrap { flex: 1; min-height: 460px; position: relative; }
+  .canvaswrap canvas { position: absolute; inset: 0; height: 100%; }
+  .hint { font-size: 11px; color: var(--dim); margin-top: 8px; display: flex; justify-content: space-between; }
+  .legend { display: flex; gap: 12px; font-size: 11px; color: var(--dim); margin-top: 8px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .opts { display: flex; gap: 14px; font-size: 12px; color: var(--dim); margin-top: 8px; align-items: center; }
+  .opts label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <div class="headrow">
+    <div>
+      <h1>TGV Formation Simulator</h1>
+      <p data-i18n="subtitle">Laser modification 후 chemical etching 에 의한 Through-Glass Via 형성 — 단면 시간 전개 + 3D volume rendering</p>
+    </div>
+    <select id="selLang" aria-label="Language">
+      <option value="ko" selected>한국어</option>
+      <option value="en">English</option>
+      <option value="ja">日本語</option>
+      <option value="zh">简体中文</option>
+      <option value="tw">繁體中文</option>
+    </select>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- ─────────── 입력 파라미터 ─────────── -->
+  <div class="card">
+    <h2 data-i18n="paramTitle">입력 파라미터</h2>
+
+    <div class="param">
+      <label><span data-i18n="pThickL">유리 두께</span> <b><span id="vThick"></span> µm</b></label>
+      <input type="range" id="pThick" min="50" max="1000" step="10" value="300">
+    </div>
+    <div class="param">
+      <label><span data-i18n="pDiamL">Laser modified 직경</span> <b><span id="vDiam"></span> µm</b></label>
+      <input type="range" id="pDiam" min="0.5" max="20" step="0.5" value="5">
+    </div>
+    <div class="param">
+      <label><span data-i18n="pSelML">Modified area 식각 selectivity</span> <b>×<span id="vSelM"></span></b></label>
+      <input type="range" id="pSelM" min="1" max="500" step="1" value="50">
+    </div>
+    <div class="param">
+      <label><span data-i18n="pSelGL">유리 식각 selectivity</span> <b>×<span id="vSelG"></span></b></label>
+      <input type="range" id="pSelG" min="0.1" max="5" step="0.1" value="1">
+    </div>
+    <div class="param">
+      <label><span data-i18n="pRateL">기준 식각 속도</span> <b><span id="vRate"></span> µm/min</b></label>
+      <input type="range" id="pRate" min="0.1" max="10" step="0.1" value="1">
+    </div>
+    <div class="param">
+      <label><span data-i18n="pTEndL">총 식각 시간</span> <b><span id="vTEnd"></span></b></label>
+      <input type="range" id="pTEnd" min="0" max="100" step="1" value="50">
+      <div class="opts" style="margin-top:2px;">
+        <label><input type="checkbox" id="optTEndAuto" checked> <span data-i18n="tEndAuto">자동 (관통 + 확장 구간)</span></label>
+      </div>
+    </div>
+
+    <!-- 표시 배율 (2D·3D 공통) -->
+    <div class="subgroup">
+      <h3 data-i18n="dispTitle">표시 배율 (수평/수직)</h3>
+      <div class="param" style="margin-bottom:6px;">
+        <label><span data-i18n="hMag">수평 확대 배율</span> <b><span id="vAspect"></span></b></label>
+        <input type="range" id="pAspect" min="0" max="100" step="1" value="50">
+      </div>
+      <div class="opts" style="margin-top:2px;">
+        <label><input type="checkbox" id="optAuto" checked> <span data-i18n="autoFit">자동 맞춤</span></label>
+        <button class="mini" id="btnRatio1" data-i18n="ratio1">1:1 실축척</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="btnPlay" class="primary">▶ 재생</button>
+      <button id="btnReset" data-i18n="reset">⟲ 초기화</button>
+      <button id="btnSpeed">×1</button>
+    </div>
+
+    <div class="timebox">
+      <label style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:4px;">
+        <span data-i18n="etchTime">식각 시간</span> <b style="color:var(--text)"><span id="vTime"></span> min</b>
+      </label>
+      <input type="range" id="pTime" min="0" max="1000" step="1" value="0">
+    </div>
+
+    <div class="readouts">
+      <div><span data-i18n="rRatesL">식각 속도 (modified / glass)</span><b><span id="rRates"></span></b></div>
+      <div><span data-i18n="rBreakL">관통(breakthrough) 시각</span><b><span id="rBreak"></span></b></div>
+      <div><span data-i18n="rTopL">입구 직경 (top/bottom)</span><b><span id="rTop"></span></b></div>
+      <div><span data-i18n="rWaistL">Waist 직경 (중앙)</span><b><span id="rWaist"></span></b></div>
+      <div><span data-i18n="rTaperL">Taper 각도</span><b><span id="rTaper"></span></b></div>
+      <div><span data-i18n="rThickL">잔여 유리 두께</span><b><span id="rThick"></span></b></div>
+    </div>
+    <div class="status" id="rStatus"></div>
+  </div>
+
+  <!-- ─────────── 2D 단면 ─────────── -->
+  <div class="card">
+    <h2 data-i18n="card2d">유리 단면 (시간 전개)</h2>
+    <div class="canvaswrap"><canvas id="cv2d"></canvas></div>
+    <div class="legend">
+      <span><i style="background:#5b7f9e"></i><span data-i18n="legGlass">유리</span></span>
+      <span><i style="background:#ff8a3d"></i><span data-i18n="legTrack">Laser modified track</span></span>
+      <span><i style="background:#0d2233"></i><span data-i18n="legEtch">식각액 / Via</span></span>
+    </div>
+    <div class="hint"><span data-i18n="vTrue">수직 = 실제 축척</span><span id="hScale2d"></span></div>
+  </div>
+
+  <!-- ─────────── 3D volume rendering ─────────── -->
+  <div class="card">
+    <h2>3D Volume Rendering</h2>
+    <div class="canvaswrap"><canvas id="cv3d"></canvas></div>
+    <div class="legend">
+      <span><i style="background:#1ae69e"></i><span data-i18n="legVia">Via (식각 형성)</span></span>
+      <span><i style="background:#ff8a3d"></i><span data-i18n="legTrack3d">Laser modified track</span></span>
+      <span><i style="background:#8fb6e0"></i><span data-i18n="legGlass3d">유리 (투명 · 테두리만)</span></span>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="optCut"> <span data-i18n="cutaway">1/4 cut-away</span></label>
+      <label><input type="checkbox" id="optSpin"> <span data-i18n="spin">자동 회전</span></label>
+    </div>
+    <div class="hint"><span data-i18n="drag">드래그: 회전 · 휠: 확대/축소</span><span id="hScale3d"></span></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ══════════════════════════ 물리 모델 ══════════════════════════
+ * 좌표 z: 0(상면) → T(하면), 단위 µm / min.
+ *  - 유리 식각 속도        vG = R0 · Sg
+ *  - modified track 속도   vM = R0 · Sm  (트랙 축방향 전파 속도)
+ *  - 상·하 표면 후퇴        s(t) = vG · t
+ *  - 트랙 식각 front (양면) f(t) = vM · t
+ *  - 깊이 z 의 via 반경: front 가 지나간 뒤 경과시간 τ 동안 등방 확장
+ *      ζ = min(z, T−z),  ζ ≤ f(t) 이면 r = d/2 + vG·(t − ζ/vM)
+ * → 경사(taper) tanθ = vG/vM = Sg/Sm 인 모래시계(hourglass) 프로파일.
+ */
+const P = { T: 300, d: 5, Sm: 50, Sg: 1, R0: 1 };
+const sim = { t: 0, tEnd: 1, playing: false, speed: 1 };
+
+const vG = () => P.R0 * P.Sg;
+const vM = () => P.R0 * P.Sm;
+const tBreak = () => (P.T / 2) / vM();
+const tConsume = () => (P.T / 2) / vG();
+
+/* 총 식각 시간: auto 이면 관통 + 확장 구간이 담기도록 자동 계산,
+ * manual 이면 슬라이더 값(log 스케일, 0.5–5000 min)을 그대로 사용 */
+const etime = { auto: true, val: 10 };
+const E_LO = Math.log10(0.5), E_HI = Math.log10(5000);
+const sliderToTEnd = v => Math.pow(10, E_LO + (v / 100) * (E_HI - E_LO));
+const tEndToSlider = t => Math.round((Math.log10(t) - E_LO) / (E_HI - E_LO) * 100);
+
+function recomputeEnd() {
+  sim.tEnd = etime.auto
+    ? Math.max(0.5, Math.min(3 * tBreak(), 0.92 * tConsume()))
+    : etime.val;
+  sim.t = Math.min(sim.t, sim.tEnd);
+  const el = document.getElementById("vTEnd");
+  if (el) {
+    el.textContent = sim.tEnd.toFixed(sim.tEnd < 10 ? 2 : 1) + " min" + (etime.auto ? ` (${t("auto")})` : "");
+    if (etime.auto) document.getElementById("pTEnd").value = tEndToSlider(sim.tEnd);
+  }
+}
+
+/** 깊이 z(원좌표) 의 via 반경. 미개방이면 0 */
+function holeRadius(z, t) {
+  const zeta = Math.min(z, P.T - z);
+  if (zeta > vM() * t) return 0;
+  return P.d / 2 + vG() * (t - zeta / vM());
+}
+const surf = t => vG() * t;              // 표면 후퇴량
+const front = t => Math.min(vM() * t, P.T / 2);
+const rMaxEnd = () => P.d / 2 + vG() * sim.tEnd;   // 최대 반경(스케일용)
+
+/* ══════════════ 수직/수평 표시 배율 (2D·3D 공통) ══════════════
+ * M = 수평 확대 배율 (수직 축척 대비). auto 이면 각 뷰가 via 가
+ * 잘 보이도록 자동 계산, manual 이면 슬라이더 값 M 을 양쪽에 적용.
+ * 슬라이더(0–100)는 log 스케일로 M = 0.5 … 200 에 매핑. */
+const aspect = { auto: true, M: 10 };
+const A_LO = Math.log10(0.5), A_HI = Math.log10(200);
+const sliderToM = v => Math.pow(10, A_LO + (v / 100) * (A_HI - A_LO));
+const mToSlider = M => Math.round((Math.log10(M) - A_LO) / (A_HI - A_LO) * 100);
+
+/* ══════════════════════════ UI 바인딩 ══════════════════════════ */
+const $ = id => document.getElementById(id);
+const fmt = (x, n = 1) => x.toFixed(n);
+
+/* ══════════════════════════ 다국어 (i18n) ══════════════════════════
+ * 정적 텍스트는 data-i18n 속성으로, 동적 문자열은 t(key) 로 조회.
+ * 상태 메시지는 {f}/{h}/{t} 플레이스홀더 치환. */
+const I18N = {
+  ko: {
+    subtitle: "Laser modification 후 chemical etching 에 의한 Through-Glass Via 형성 — 단면 시간 전개 + 3D volume rendering",
+    paramTitle: "입력 파라미터",
+    pThickL: "유리 두께", pDiamL: "Laser modified 직경",
+    pSelML: "Modified area 식각 selectivity", pSelGL: "유리 식각 selectivity",
+    pRateL: "기준 식각 속도", pTEndL: "총 식각 시간",
+    tEndAuto: "자동 (관통 + 확장 구간)",
+    dispTitle: "표시 배율 (수평/수직)", hMag: "수평 확대 배율",
+    autoFit: "자동 맞춤", ratio1: "1:1 실축척",
+    play: "▶ 재생", pause: "❚❚ 일시정지", reset: "⟲ 초기화",
+    etchTime: "식각 시간",
+    rRatesL: "식각 속도 (modified / glass)", rBreakL: "관통(breakthrough) 시각",
+    rTopL: "입구 직경 (top/bottom)", rWaistL: "Waist 직경 (중앙)",
+    rTaperL: "Taper 각도", rThickL: "잔여 유리 두께",
+    stWait: "대기 — 식각 시작 전",
+    stBlind: "Blind via 성장 중 · front 깊이 {f} µm / {h} µm",
+    stBreak: "관통 완료 (t = {t} min) — hourglass via 확장 중",
+    card2d: "유리 단면 (시간 전개)",
+    legGlass: "유리", legTrack: "Laser modified track", legEtch: "식각액 / Via",
+    vTrue: "수직 = 실제 축척",
+    legVia: "Via (식각 형성)", legTrack3d: "Laser modified track",
+    legGlass3d: "유리 (투명 · 테두리만)",
+    cutaway: "1/4 cut-away", spin: "자동 회전",
+    drag: "드래그: 회전 · 휠: 확대/축소",
+    auto: "자동", manual: "수동",
+    hExpand: "수평 확대 ×", hShrink: "수평 축소 ×", oneToOne: "1:1 축척"
+  },
+  en: {
+    subtitle: "Through-glass via formation by laser modification + chemical etching — cross-section time evolution + 3D volume rendering",
+    paramTitle: "Input Parameters",
+    pThickL: "Glass thickness", pDiamL: "Laser modified diameter",
+    pSelML: "Modified area etch selectivity", pSelGL: "Glass etch selectivity",
+    pRateL: "Base etch rate", pTEndL: "Total etch time",
+    tEndAuto: "Auto (breakthrough + widening)",
+    dispTitle: "Display scale (H/V)", hMag: "Horizontal magnification",
+    autoFit: "Auto fit", ratio1: "1:1 true scale",
+    play: "▶ Play", pause: "❚❚ Pause", reset: "⟲ Reset",
+    etchTime: "Etch time",
+    rRatesL: "Etch rate (modified / glass)", rBreakL: "Breakthrough time",
+    rTopL: "Opening diameter (top/bottom)", rWaistL: "Waist diameter (center)",
+    rTaperL: "Taper angle", rThickL: "Remaining glass thickness",
+    stWait: "Idle — etching not started",
+    stBlind: "Blind via growing · front depth {f} µm / {h} µm",
+    stBreak: "Breakthrough (t = {t} min) — hourglass via widening",
+    card2d: "Glass cross-section (time evolution)",
+    legGlass: "Glass", legTrack: "Laser modified track", legEtch: "Etchant / via",
+    vTrue: "Vertical = true scale",
+    legVia: "Via (etched)", legTrack3d: "Laser modified track",
+    legGlass3d: "Glass (transparent, edges only)",
+    cutaway: "1/4 cut-away", spin: "Auto rotate",
+    drag: "Drag: rotate · Wheel: zoom",
+    auto: "auto", manual: "manual",
+    hExpand: "H. zoom ×", hShrink: "H. shrink ×", oneToOne: "1:1 scale"
+  },
+  ja: {
+    subtitle: "レーザー改質＋化学エッチングによる Through-Glass Via 形成 — 断面の時間発展 + 3D ボリュームレンダリング",
+    paramTitle: "入力パラメータ",
+    pThickL: "ガラス厚さ", pDiamL: "レーザー改質径",
+    pSelML: "改質部エッチング選択比", pSelGL: "ガラスエッチング選択比",
+    pRateL: "基準エッチング速度", pTEndL: "総エッチング時間",
+    tEndAuto: "自動（貫通＋拡大区間）",
+    dispTitle: "表示倍率（水平/垂直）", hMag: "水平拡大倍率",
+    autoFit: "自動フィット", ratio1: "1:1 実尺",
+    play: "▶ 再生", pause: "❚❚ 一時停止", reset: "⟲ リセット",
+    etchTime: "エッチング時間",
+    rRatesL: "エッチング速度 (modified / glass)", rBreakL: "貫通時刻",
+    rTopL: "開口径 (top/bottom)", rWaistL: "ウエスト径（中央）",
+    rTaperL: "テーパー角", rThickL: "残りガラス厚さ",
+    stWait: "待機 — エッチング開始前",
+    stBlind: "ブラインドVia成長中 · フロント深さ {f} µm / {h} µm",
+    stBreak: "貫通完了 (t = {t} min) — 砂時計状Viaが拡大中",
+    card2d: "ガラス断面（時間発展）",
+    legGlass: "ガラス", legTrack: "レーザー改質トラック", legEtch: "エッチング液 / Via",
+    vTrue: "垂直 = 実尺",
+    legVia: "Via（エッチング形成）", legTrack3d: "レーザー改質トラック",
+    legGlass3d: "ガラス（透明・輪郭のみ）",
+    cutaway: "1/4 カットアウェイ", spin: "自動回転",
+    drag: "ドラッグ: 回転 · ホイール: ズーム",
+    auto: "自動", manual: "手動",
+    hExpand: "水平拡大 ×", hShrink: "水平縮小 ×", oneToOne: "1:1 尺度"
+  },
+  zh: {
+    subtitle: "激光改质 + 化学蚀刻形成玻璃通孔 (TGV) — 剖面时间演化 + 3D 体渲染",
+    paramTitle: "输入参数",
+    pThickL: "玻璃厚度", pDiamL: "激光改质区直径",
+    pSelML: "改质区蚀刻选择比", pSelGL: "玻璃蚀刻选择比",
+    pRateL: "基准蚀刻速率", pTEndL: "总蚀刻时间",
+    tEndAuto: "自动（贯通 + 扩孔区间）",
+    dispTitle: "显示比例（水平/垂直）", hMag: "水平放大倍率",
+    autoFit: "自动适配", ratio1: "1:1 真实比例",
+    play: "▶ 播放", pause: "❚❚ 暂停", reset: "⟲ 重置",
+    etchTime: "蚀刻时间",
+    rRatesL: "蚀刻速率 (modified / glass)", rBreakL: "贯通时刻",
+    rTopL: "开口直径 (top/bottom)", rWaistL: "腰部直径（中央）",
+    rTaperL: "锥角", rThickL: "剩余玻璃厚度",
+    stWait: "待机 — 蚀刻尚未开始",
+    stBlind: "盲孔生长中 · 蚀刻前沿深度 {f} µm / {h} µm",
+    stBreak: "已贯通 (t = {t} min) — 沙漏形通孔扩大中",
+    card2d: "玻璃剖面（时间演化）",
+    legGlass: "玻璃", legTrack: "激光改质轨迹", legEtch: "蚀刻液 / 通孔",
+    vTrue: "垂直 = 真实比例",
+    legVia: "通孔（蚀刻形成）", legTrack3d: "激光改质轨迹",
+    legGlass3d: "玻璃（透明·仅轮廓）",
+    cutaway: "1/4 剖切", spin: "自动旋转",
+    drag: "拖拽：旋转 · 滚轮：缩放",
+    auto: "自动", manual: "手动",
+    hExpand: "水平放大 ×", hShrink: "水平缩小 ×", oneToOne: "1:1 比例"
+  },
+  tw: {
+    subtitle: "雷射改質 + 化學蝕刻形成玻璃通孔 (TGV) — 剖面時間演化 + 3D 體渲染",
+    paramTitle: "輸入參數",
+    pThickL: "玻璃厚度", pDiamL: "雷射改質區直徑",
+    pSelML: "改質區蝕刻選擇比", pSelGL: "玻璃蝕刻選擇比",
+    pRateL: "基準蝕刻速率", pTEndL: "總蝕刻時間",
+    tEndAuto: "自動（貫通 + 擴孔區間）",
+    dispTitle: "顯示比例（水平/垂直）", hMag: "水平放大倍率",
+    autoFit: "自動適配", ratio1: "1:1 真實比例",
+    play: "▶ 播放", pause: "❚❚ 暫停", reset: "⟲ 重置",
+    etchTime: "蝕刻時間",
+    rRatesL: "蝕刻速率 (modified / glass)", rBreakL: "貫通時刻",
+    rTopL: "開口直徑 (top/bottom)", rWaistL: "腰部直徑（中央）",
+    rTaperL: "錐角", rThickL: "剩餘玻璃厚度",
+    stWait: "待機 — 蝕刻尚未開始",
+    stBlind: "盲孔成長中 · 蝕刻前沿深度 {f} µm / {h} µm",
+    stBreak: "已貫通 (t = {t} min) — 沙漏形通孔擴大中",
+    card2d: "玻璃剖面（時間演化）",
+    legGlass: "玻璃", legTrack: "雷射改質軌跡", legEtch: "蝕刻液 / 通孔",
+    vTrue: "垂直 = 真實比例",
+    legVia: "通孔（蝕刻形成）", legTrack3d: "雷射改質軌跡",
+    legGlass3d: "玻璃（透明·僅輪廓）",
+    cutaway: "1/4 剖切", spin: "自動旋轉",
+    drag: "拖曳：旋轉 · 滾輪：縮放",
+    auto: "自動", manual: "手動",
+    hExpand: "水平放大 ×", hShrink: "水平縮小 ×", oneToOne: "1:1 比例"
+  }
+};
+let lang = "ko";
+const t = k => (I18N[lang] && I18N[lang][k]) || I18N.ko[k] || k;
+const i18nT = t;   // 지역변수 t(시간)에 가려지는 스코프용 별칭
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  updatePlayBtn();
+  updateAspectLabel();
+  recomputeEnd();
+  requestDraw();
+}
+
+function bindParam(id, key, disp, dn = 1) {
+  const el = $(id);
+  const show = () => { $(disp).textContent = fmt(+el.value, dn); };
+  el.addEventListener("input", () => { P[key] = +el.value; show(); recomputeEnd(); syncTime(); requestDraw(); });
+  P[key] = +el.value; show();
+}
+bindParam("pThick", "T", "vThick", 0);
+bindParam("pDiam", "d", "vDiam", 1);
+bindParam("pSelM", "Sm", "vSelM", 0);
+bindParam("pSelG", "Sg", "vSelG", 1);
+bindParam("pRate", "R0", "vRate", 1);
+
+/* 표시 배율 컨트롤 */
+function updateAspectLabel() {
+  $("vAspect").textContent = aspect.auto ? t("auto") : "×" + fmt(aspect.M, aspect.M < 10 ? 1 : 0);
+}
+$("pAspect").addEventListener("input", () => {
+  aspect.M = sliderToM(+$("pAspect").value);
+  aspect.auto = false;
+  $("optAuto").checked = false;
+  updateAspectLabel(); requestDraw();
+});
+$("optAuto").addEventListener("change", e => {
+  aspect.auto = e.target.checked;
+  updateAspectLabel(); requestDraw();
+});
+/* 언어 선택 */
+$("selLang").addEventListener("change", () => {
+  lang = $("selLang").value;
+  applyLang();
+});
+
+/* 총 식각 시간 컨트롤 */
+$("pTEnd").addEventListener("input", () => {
+  etime.val = sliderToTEnd(+$("pTEnd").value);
+  etime.auto = false;
+  $("optTEndAuto").checked = false;
+  recomputeEnd(); syncTime(); requestDraw();
+});
+$("optTEndAuto").addEventListener("change", e => {
+  etime.auto = e.target.checked;
+  recomputeEnd(); syncTime(); requestDraw();
+});
+
+$("btnRatio1").addEventListener("click", () => {
+  aspect.M = 1; aspect.auto = false;
+  $("optAuto").checked = false;
+  $("pAspect").value = mToSlider(1);
+  updateAspectLabel(); requestDraw();
+});
+
+const pTime = $("pTime");
+function syncTime() {
+  pTime.max = 1000;
+  pTime.value = Math.round(sim.t / sim.tEnd * 1000);
+  $("vTime").textContent = fmt(sim.t, 2);
+}
+pTime.addEventListener("input", () => {
+  sim.t = +pTime.value / 1000 * sim.tEnd;
+  sim.playing = false; updatePlayBtn();
+  $("vTime").textContent = fmt(sim.t, 2);
+  requestDraw();
+});
+
+const speeds = [0.5, 1, 2, 4, 10, 25, 50, 100];
+let speedIdx = 1;
+$("btnSpeed").addEventListener("click", () => {
+  speedIdx = (speedIdx + 1) % speeds.length;
+  sim.speed = speeds[speedIdx];
+  $("btnSpeed").textContent = "×" + speeds[speedIdx];
+});
+function updatePlayBtn() { $("btnPlay").textContent = sim.playing ? t("pause") : t("play"); }
+$("btnPlay").addEventListener("click", () => {
+  if (!sim.playing && sim.t >= sim.tEnd) sim.t = 0;
+  sim.playing = !sim.playing; updatePlayBtn();
+});
+$("btnReset").addEventListener("click", () => { sim.t = 0; sim.playing = false; updatePlayBtn(); syncTime(); requestDraw(); });
+
+/* ══════════════════════════ 판독값 ══════════════════════════ */
+function updateReadouts() {
+  const t = sim.t;
+  $("rRates").textContent = `${fmt(vM())} / ${fmt(vG())} µm/min`;
+  $("rBreak").textContent = fmt(tBreak(), 2) + " min";
+  const rt = holeRadius(surf(t) + 1e-9, t);
+  $("rTop").textContent = rt > 0 ? fmt(2 * rt) + " µm" : "—";
+  const broke = t >= tBreak();
+  const rw = holeRadius(P.T / 2, t);
+  $("rWaist").textContent = broke ? fmt(2 * rw) + " µm" : "—";
+  $("rTaper").textContent = fmt(Math.atan2(vG(), vM()) * 180 / Math.PI, 2) + "°";
+  $("rThick").textContent = fmt(Math.max(0, P.T - 2 * surf(t)), 1) + " µm";
+  const st = $("rStatus");
+  if (t <= 0) { st.textContent = i18nT("stWait"); st.className = "status"; }
+  else if (!broke) {
+    st.textContent = i18nT("stBlind").replace("{f}", fmt(front(t))).replace("{h}", fmt(P.T / 2));
+    st.className = "status";
+  } else {
+    st.textContent = i18nT("stBreak").replace("{t}", fmt(tBreak(), 2));
+    st.className = "status break";
+  }
+}
+
+/* 배율 힌트 문자열 */
+function scaleHint(mag, auto) {
+  const mode = auto ? t("auto") : t("manual");
+  if (mag > 1.05) return `${t("hExpand")}${fmt(mag, 1)} (${mode})`;
+  if (mag < 0.95) return `${t("hShrink")}${fmt(mag, 2)} (${mode})`;
+  return `${t("oneToOne")} (${mode})`;
+}
+
+/* ══════════════════════════ 2D 단면 ══════════════════════════ */
+const cv2 = $("cv2d"), ctx2 = cv2.getContext("2d");
+
+function draw2D() {
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv2.clientWidth, H = cv2.clientHeight;
+  if (cv2.width !== W * dpr) { cv2.width = W * dpr; cv2.height = H * dpr; }
+  ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const t = sim.t;
+  const mL = 58, mR = 16, mT = 26, mB = 26;
+  const availW = W - mL - mR, availH = H - mT - mB;
+  const scaleY = availH / P.T;
+  const halfWNeeded = Math.max(rMaxEnd() * 1.35, P.d * 2);
+  let scaleX = aspect.auto
+    ? availW / (2 * halfWNeeded)      // 자동: via 최대 폭이 캔버스에 맞도록
+    : scaleY * aspect.M;              // 수동: 수직 축척 × M
+  const mag = scaleX / scaleY;
+  $("hScale2d").textContent = scaleHint(mag, aspect.auto);
+
+  const cx = mL + availW / 2;
+  const zy = z => mT + z * scaleY;
+  const xr = x => cx + x * scaleX;
+
+  // 배경(식각액)
+  ctx2.fillStyle = "#0d2233";
+  ctx2.fillRect(0, 0, W, H);
+
+  const s = Math.min(surf(t), P.T / 2);
+  const f = front(t);
+
+  // 이후 도형은 유리 영역 폭으로 클리핑 (수동 고배율에서 넘침 방지)
+  ctx2.save();
+  ctx2.beginPath();
+  ctx2.rect(mL, 0, availW, H);
+  ctx2.clip();
+
+  // 유리 본체
+  ctx2.fillStyle = "#5b7f9e";
+  ctx2.fillRect(mL, zy(s), availW, Math.max(0, (P.T - 2 * s) * scaleY));
+
+  // 미식각 modified track
+  if (f < P.T / 2) {
+    ctx2.fillStyle = "#ff8a3d";
+    ctx2.fillRect(xr(-P.d / 2), zy(f), P.d * scaleX, (P.T - 2 * f) * scaleY);
+  }
+
+  // Via(식각된 영역) 프로파일 폴리곤
+  const drawHole = (z0, z1) => {
+    if (z1 <= z0) return;
+    const N = 120;
+    const Lw = [], Rw = [];
+    for (let i = 0; i <= N; i++) {
+      const z = z0 + (z1 - z0) * i / N;
+      const r = Math.max(holeRadius(z, t), 0);
+      Lw.push([xr(-r), zy(z)]);
+      Rw.push([xr(r), zy(z)]);
+    }
+    ctx2.beginPath();
+    Lw.forEach(([x, y], i) => i === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y));
+    for (let i = N; i >= 0; i--) ctx2.lineTo(Rw[i][0], Rw[i][1]);
+    ctx2.closePath();
+    ctx2.fillStyle = "#0d2233";
+    ctx2.fill();
+    // 좌우 벽면만 스트로크 — 개구부를 가로지르는 마감선(막힌 듯 보임)은 그리지 않음
+    ctx2.strokeStyle = "#4db8ff55";
+    ctx2.lineWidth = 1;
+    ctx2.beginPath();
+    Lw.forEach(([x, y], i) => i === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y));
+    ctx2.stroke();
+    ctx2.beginPath();
+    Rw.forEach(([x, y], i) => i === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y));
+    ctx2.stroke();
+  };
+  if (t > 0) {
+    // 표면에 닿는 쪽은 살짝 오버드로 — 유리 사각형 AA 경계가 개구부에 잔선으로 남는 것 방지
+    const ov = 1.5 / scaleY;
+    if (f < P.T / 2) {           // blind via (상·하 각각)
+      drawHole(s - ov, f);
+      drawHole(P.T - f, P.T - s + ov);
+    } else {                     // 관통 상태
+      drawHole(s - ov, P.T - s + ov);
+    }
+  }
+
+  ctx2.restore();
+
+  // 유리 색과 구분되는 앰버 계열 주석색
+  const annC = "#ffc861";
+
+  // 상면 via 입구 직경 표시선: 직경 구간만 점선 (전폭 표면선은 막힌 듯 보여 제거, 하면은 표시 안 함)
+  const rMouth = holeRadius(s + 1e-9, t);
+  if (rMouth > 0) {
+    ctx2.strokeStyle = annC + "aa";
+    ctx2.lineWidth = 1;
+    ctx2.setLineDash([3, 3]);
+    ctx2.beginPath();
+    ctx2.moveTo(Math.max(xr(-rMouth), mL), zy(s));
+    ctx2.lineTo(Math.min(xr(rMouth), mL + availW), zy(s));
+    ctx2.stroke();
+    ctx2.setLineDash([]);
+  }
+
+  // 두께 치수선 (좌측)
+  ctx2.strokeStyle = annC;
+  ctx2.fillStyle = annC;
+  ctx2.font = "11px sans-serif";
+  const dx = mL - 22;
+  ctx2.beginPath();
+  ctx2.moveTo(dx, zy(s)); ctx2.lineTo(dx, zy(P.T - s));
+  ctx2.stroke();
+  ctx2.save();
+  ctx2.translate(dx - 6, zy(P.T / 2));
+  ctx2.rotate(-Math.PI / 2);
+  ctx2.textAlign = "center";
+  ctx2.fillText(fmt(Math.max(0, P.T - 2 * s), 0) + " µm", 0, 0);
+  ctx2.restore();
+
+  // 입구 / waist 직경 표기
+  ctx2.textAlign = "center";
+  const rTop = holeRadius(s + 1e-9, t);
+  if (rTop > 0) {
+    ctx2.fillStyle = annC;
+    ctx2.fillText("Ø " + fmt(2 * rTop) + " µm", cx, zy(s) - 8);
+  }
+  if (t >= tBreak()) {
+    const rw = holeRadius(P.T / 2, t);
+    ctx2.fillStyle = "#7dffb0";
+    const lx = Math.min(cx + (rw * scaleX) + 52, W - 60);
+    ctx2.fillText("waist Ø " + fmt(2 * rw) + " µm", lx, zy(P.T / 2) + 4);
+    ctx2.strokeStyle = "#7dffb055";
+    ctx2.setLineDash([3, 3]);
+    ctx2.beginPath();
+    ctx2.moveTo(Math.max(xr(-rw), mL), zy(P.T / 2));
+    ctx2.lineTo(Math.min(xr(rw), mL + availW), zy(P.T / 2));
+    ctx2.stroke();
+    ctx2.setLineDash([]);
+  }
+
+  // 시간 라벨
+  ctx2.fillStyle = annC;
+  ctx2.textAlign = "left";
+  ctx2.fillText("t = " + fmt(t, 2) + " min", mL, H - 8);
+}
+
+/* ══════════════════════════ 3D volume rendering ══════════════════════════ */
+const cv3 = $("cv3d");
+const gl = cv3.getContext("webgl", { antialias: false, preserveDrawingBuffer: true });
+const cam = { yaw: -0.7, pitch: 0.42, dist: 2.6, drag: false, lx: 0, ly: 0 };
+
+const VS = `
+attribute vec2 aPos;
+varying vec2 vUV;
+void main() { vUV = aPos; gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+
+/* 축대칭 해석 프로파일을 fragment shader 에서 직접 샘플링하는 emission–absorption 볼륨 렌더러.
+ * 시각화를 위해 xy(반경) 방향은 uAniso 배 축소된 display 공간에서 raymarch 한다. */
+const FS = `
+precision highp float;
+varying vec2 vUV;
+uniform vec2  uRes;
+uniform float uYaw, uPitch, uDist;
+uniform float uT;        // 유리 두께 (µm)
+uniform float uHW;       // display 공간 box 반폭 (µm 단위 z 와 동일 스케일)
+uniform float uAniso;    // display xy → 물리 xy 환산비
+uniform float uR0;       // track 반경 d/2
+uniform float uVg, uVm, uTime;
+uniform float uCut;
+
+// 물질 종류: 0 = 없음, 1 = 유리, 2 = modified track, 3 = 형성된 via(식각 공동)
+int material(vec3 p) {
+  float sTop = uVg * uTime;
+  float zTop = uT * 0.5 - sTop;
+  if (abs(p.z) > zTop) return 0;                       // 표면 후퇴로 제거된 영역
+  if (uCut > 0.5 && p.x > 0.0 && p.y < 0.0) return 0;  // cut-away
+  vec2 xy = p.xy * uAniso;                             // 물리 좌표로 환산
+  float rr = length(xy);
+  float zeta = uT * 0.5 - abs(p.z);                    // 원표면으로부터의 깊이
+  float f = uVm * uTime;
+  if (zeta <= f) {
+    float tau = uTime - zeta / uVm;
+    float r = uR0 + uVg * tau;
+    if (rr < r) return 3;                              // via 공동 → 컬러 본체로 렌더
+  } else if (rr < uR0) {
+    return 2;                                          // 미식각 modified track
+  }
+  return 1;
+}
+
+vec2 boxHit(vec3 ro, vec3 rd, vec3 bmin, vec3 bmax) {
+  vec3 inv = 1.0 / rd;
+  vec3 t0 = (bmin - ro) * inv;
+  vec3 t1 = (bmax - ro) * inv;
+  vec3 tmin = min(t0, t1), tmax = max(t0, t1);
+  return vec2(max(max(tmin.x, tmin.y), tmin.z), min(min(tmax.x, tmax.y), tmax.z));
+}
+
+void main() {
+  float aspect = uRes.x / uRes.y;
+  vec2 uv = vec2(vUV.x * aspect, vUV.y);
+
+  float L = max(uT, uHW * 2.2);       // 스케일 기준 (넓은 box 도 프레임에 담기게)
+  float cy = cos(uYaw), sy = sin(uYaw);
+  float cp = cos(uPitch), sp = sin(uPitch);
+  vec3 ro = vec3(cy * cp, sy * cp, sp) * uDist * L;
+  vec3 fw = normalize(-ro);
+  vec3 rt = normalize(cross(fw, vec3(0.0, 0.0, 1.0)));
+  vec3 up = cross(rt, fw);
+  vec3 rd = normalize(fw * 1.9 + rt * uv.x + up * uv.y);
+
+  vec3 bmin = vec3(-uHW, -uHW, -uT * 0.5);
+  vec3 bmax = vec3( uHW,  uHW,  uT * 0.5);
+  vec2 hit = boxHit(ro, rd, bmin, bmax);
+
+  vec3 bg = mix(vec3(0.05, 0.08, 0.12), vec3(0.03, 0.05, 0.09), vUV.y * 0.5 + 0.5);
+  vec3 acc = vec3(0.0);
+  float accA = 0.0;
+  float ghost = 0.0;   // box 영역 실루엣 (전부 식각돼도 경계가 보이게)
+
+  if (hit.y > max(hit.x, 0.0)) {
+    ghost = 1.0;
+    const int N = 160;
+    float t0 = max(hit.x, 0.0);
+    float dt = (hit.y - t0) / float(N);
+    vec3 glassC = vec3(0.45, 0.65, 0.85);   // 유리: 거의 투명
+    vec3 trackC = vec3(1.00, 0.48, 0.15);   // 미식각 modified track
+    vec3 viaC   = vec3(0.10, 0.90, 0.62);   // 형성된 via (컬러 본체)
+    vec3 edgeC  = vec3(0.60, 0.78, 1.00);   // 유리 슬랩 테두리
+    float kGlass = 0.45 / uT;
+    float kTrack = 30.0 / uT;
+    float kVia   = 9.0 / uT;
+    float kEdge  = 80.0 / uT;               // 얇은 선이 또렷하게 보이도록 고밀도
+    float zTop  = uT * 0.5 - uVg * uTime;   // 현재 슬랩 상·하면
+    float epsXY = uHW * 0.022;
+    float epsZ  = uT * 0.012;
+    for (int i = 0; i < N; i++) {
+      if (accA > 0.985) break;
+      vec3 p = ro + rd * (t0 + (float(i) + 0.5) * dt);
+      int m = material(p);
+      if (m == 0) continue;
+      if (m == 1) {                        // 유리: 슬랩 테두리(두 면과 동시에 가까움)만 강조
+        int nr = 0;
+        if (uHW - abs(p.x) < epsXY) nr++;
+        if (uHW - abs(p.y) < epsXY) nr++;
+        if (zTop - abs(p.z) < epsZ) nr++;
+        if (uCut > 0.5) {                  // cut-away 절단면(x=0·y<0, y=0·x>0)도 경계로 취급
+          if (p.y < epsXY && abs(p.x) < epsXY) nr++;
+          if (p.x > -epsXY && abs(p.y) < epsXY) nr++;
+        }
+        if (nr >= 2) m = 4;
+      }
+      float dens = (m == 2) ? kTrack : (m == 3) ? kVia : (m == 4) ? kEdge : kGlass;
+      vec3 col  = (m == 2) ? trackC : (m == 3) ? viaC : (m == 4) ? edgeC : glassC;
+      // 깊이에 따른 미묘한 음영
+      col *= 0.85 + 0.15 * (p.z / (uT * 0.5));
+      float a = 1.0 - exp(-dens * dt);
+      acc += (1.0 - accA) * a * col;
+      accA += (1.0 - accA) * a;
+    }
+  }
+  vec3 rgb = acc + (1.0 - accA) * (bg + ghost * vec3(0.025, 0.045, 0.07));
+  gl_FragColor = vec4(pow(rgb, vec3(0.9)), 1.0);
+}
+`;
+
+let prog = null, uni = {};
+function initGL() {
+  if (!gl) return;
+  const sh = (type, src) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  };
+  prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "aPos");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  ["uRes", "uYaw", "uPitch", "uDist", "uT", "uHW", "uAniso", "uR0", "uVg", "uVm", "uTime", "uCut"]
+    .forEach(n => uni[n] = gl.getUniformLocation(prog, n));
+}
+
+function draw3D() {
+  if (!gl || !prog) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = cv3.clientWidth, H = cv3.clientHeight;
+  if (cv3.width !== W * dpr) { cv3.width = W * dpr; cv3.height = H * dpr; }
+  gl.viewport(0, 0, cv3.width, cv3.height);
+
+  /* display box 반폭은 두께에 비례해 고정 → box 모양은 일정하고,
+   * aniso(= 물리/표시 비)가 수평 배율을 결정한다.
+   *  - 자동: 물리 반폭을 via 최대 반경에 맞춤
+   *  - 수동: aniso = 1/M (2D 와 동일한 배율 M 적용) */
+  const dispHW = 0.40 * P.T;
+  let aniso;
+  if (aspect.auto) {
+    const physHW = Math.max(rMaxEnd() * 1.5, P.d * 2.5);
+    aniso = physHW / dispHW;
+  } else {
+    aniso = 1 / aspect.M;
+  }
+  const mag = 1 / aniso;
+  $("hScale3d").textContent = scaleHint(mag, aspect.auto);
+
+  gl.uniform2f(uni.uRes, cv3.width, cv3.height);
+  gl.uniform1f(uni.uYaw, cam.yaw);
+  gl.uniform1f(uni.uPitch, cam.pitch);
+  gl.uniform1f(uni.uDist, cam.dist);
+  gl.uniform1f(uni.uT, P.T);
+  gl.uniform1f(uni.uHW, dispHW);
+  gl.uniform1f(uni.uAniso, aniso);
+  gl.uniform1f(uni.uR0, P.d / 2);
+  gl.uniform1f(uni.uVg, vG());
+  gl.uniform1f(uni.uVm, vM());
+  gl.uniform1f(uni.uTime, sim.t);
+  gl.uniform1f(uni.uCut, $("optCut").checked ? 1 : 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+/* 3D 마우스 조작 */
+cv3.addEventListener("mousedown", e => { cam.drag = true; cam.lx = e.clientX; cam.ly = e.clientY; });
+window.addEventListener("mouseup", () => cam.drag = false);
+window.addEventListener("mousemove", e => {
+  if (!cam.drag) return;
+  cam.yaw -= (e.clientX - cam.lx) * 0.008;
+  cam.pitch = Math.max(-1.4, Math.min(1.4, cam.pitch + (e.clientY - cam.ly) * 0.008));
+  cam.lx = e.clientX; cam.ly = e.clientY;
+  requestDraw();
+});
+cv3.addEventListener("wheel", e => {
+  e.preventDefault();
+  cam.dist = Math.max(1.2, Math.min(6, cam.dist * (e.deltaY > 0 ? 1.1 : 0.9)));
+  requestDraw();
+}, { passive: false });
+$("optCut").addEventListener("change", requestDraw);
+
+/* ══════════════════════════ 메인 루프 ══════════════════════════ */
+let needDraw = true;
+function requestDraw() { needDraw = true; }
+let lastTs = 0;
+function loop(ts) {
+  const dtSec = Math.min(0.1, (ts - lastTs) / 1000 || 0);
+  lastTs = ts;
+  if (sim.playing) {
+    sim.t += dtSec * (sim.tEnd / 15) * sim.speed;   // 기본 배속: 전체 과정 ≈ 15 s
+    if (sim.t >= sim.tEnd) { sim.t = sim.tEnd; sim.playing = false; updatePlayBtn(); }
+    syncTime();
+    needDraw = true;
+  }
+  if ($("optSpin").checked && !cam.drag) { cam.yaw += dtSec * 0.4; needDraw = true; }
+  if (needDraw) {
+    needDraw = false;
+    updateReadouts();
+    draw2D();
+    draw3D();
+  }
+  requestAnimationFrame(loop);
+}
+
+recomputeEnd();
+syncTime();
+aspect.M = sliderToM(+$("pAspect").value);
+updateAspectLabel();
+try { initGL(); } catch (e) {
+  const wrap = cv3.parentElement;
+  wrap.innerHTML = '<p style="padding:20px;color:#f88">WebGL 초기화 실패: ' + e.message + "</p>";
+}
+window.addEventListener("resize", requestDraw);
+updatePlayBtn();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
